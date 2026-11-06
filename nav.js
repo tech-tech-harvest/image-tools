@@ -68,7 +68,7 @@
     const pad = parseFloat(getComputedStyle(inner).paddingLeft) * 2;
     const gap = parseFloat(getComputedStyle(inner).columnGap) || 16;
     const brandW = brand ? brand.offsetWidth : 0;
-    neededCenter = nav.scrollWidth + 2 * (brandW + gap) + pad;
+    neededCenter = nav.scrollWidth + 1.5 * brandW + 2 * gap + pad; // 左右の余白が 2:1 なので、左にロゴが入る幅
     header.classList.add('inline'); // 並べたときは項目の間隔が狭くなるので、その状態で測る
     neededInline = nav.scrollWidth + brandW + gap + pad;
     header.classList.remove('inline');
