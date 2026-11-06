@@ -143,7 +143,7 @@ body.has-side .page-head { display: none; }
   margin-bottom: 12px;
 }
 .card .pane-head h2 { margin: 0; min-width: 0; overflow-wrap: anywhere; }
-.pane-head-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+
 
 /* 編集／プレビュー切り替えタブ */
 .view-switch {
@@ -576,6 +576,8 @@ body.has-side .page-head { display: none; }
   margin-bottom: 12px;
 }
 .bar-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+/* 写真の操作と編集の操作の区切り */
+.bar-divider { width: 1px; align-self: stretch; margin: 4px 4px; background: var(--border); }
 
 /* 「i」ボタンと説明の吹き出し */
 .info-wrap { position: relative; }
