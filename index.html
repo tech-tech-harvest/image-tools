@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ファイル形式変換</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-inner">
+      <a class="brand" href="index.html">ファイル変換ツール</a>
+      <nav class="site-nav">
+        <a href="index.html" class="active" aria-current="page">形式変換</a>
+        <a href="resize/index.html">トリミング＆リサイズ</a>
+        <a href="mosaic/index.html">モザイク</a>
+        <a href="bg-remove/index.html">背景削除</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="page-head">
+    <h1>ファイル形式変換</h1>
+    <p class="sub">ファイルはブラウザ内で処理され、外部に送信されません</p>
+  </div>
+
+  <div class="layout" id="layout">
+    <main class="main-col">
+      <!-- 最初の画面：ドロップのみ -->
+      <section class="card drop-card" id="drop-card">
+        <label id="drop" class="drop-zone" for="file-input">
+          <input type="file" id="file-input" accept="image/*,application/pdf,.pdf,.heic,.heif,.avif" multiple hidden>
+          <div class="drop-inner">
+            <div class="drop-icon">⬆</div>
+            <p><strong>ここに画像・PDFをドラッグ＆ドロップ</strong></p>
+            <p class="muted">または クリックしてファイルを選択（複数可・形式は自動で判定します）</p>
+          </div>
+        </label>
+      </section>
+
+      <!-- 読み込み後：左にファイル一覧 -->
+      <section class="card hidden" id="list-card">
+        <div class="pane-head">
+          <h2>ファイル一覧</h2>
+          <span id="count" class="muted small"></span>
+        </div>
+        <div class="page-tools">
+          <button type="button" id="add-files" class="btn secondary">ファイルを追加</button>
+          <button type="button" id="sort-name" class="btn secondary">ファイル名順に並べる</button>
+          <button type="button" id="clear" class="btn secondary">すべて削除</button>
+        </div>
+        <p class="muted small">ドラッグで並べ替え、× で削除できます。PDF はページ範囲（例: 1-3,5）を指定できます（空欄はすべて）。</p>
+        <div id="grid" class="thumb-grid sortable"></div>
+      </section>
+    </main>
+
+    <aside class="side card hidden" id="side">
+      <div class="side-head">
+        <h2>出力設定</h2>
+      </div>
+
+      <div class="side-body">
+        <div class="opt">
+          <div class="opt-title">入力形式 <span class="muted small">（自動判定）</span></div>
+          <div id="in-type" class="grid2"></div>
+        </div>
+
+        <div class="opt">
+          <div class="opt-title">出力形式</div>
+          <div class="grid2">
+            <select id="out-format" class="dd">
+              <option value="png">PNG</option>
+              <option value="jpeg">JPEG</option>
+              <option value="webp">WebP</option>
+              <option value="pdf">PDF</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="opt" id="quality-label">
+          <div class="opt-title">画質 <span class="opt-value"><span id="quality-val">92</span>%</span></div>
+          <input type="range" id="quality" min="0.5" max="1" step="0.01" value="0.92">
+        </div>
+
+        <div class="opt" id="dpi-row">
+          <div class="opt-title">PDFの解像度</div>
+          <select id="dpi" class="seg">
+            <option value="72" data-short="72 dpi">72 dpi（画面表示）</option>
+            <option value="150" data-short="150 dpi" selected>150 dpi（標準）</option>
+            <option value="300" data-short="300 dpi">300 dpi（高画質・印刷）</option>
+            <option value="600" data-short="600 dpi">600 dpi（最高画質）</option>
+          </select>
+        </div>
+
+        <div id="pdf-opts">
+          <div class="opt">
+            <div class="opt-title">画像ページの用紙サイズ</div>
+            <select id="paper" class="seg">
+              <option value="fit" data-short="画像サイズ">画像に合わせる</option>
+              <option value="a4">A4</option>
+              <option value="a3">A3</option>
+              <option value="b5" data-short="B5">B5 (JIS)</option>
+              <option value="letter">Letter</option>
+            </select>
+          </div>
+          <div class="opt" id="orient-label">
+            <div class="opt-title">向き</div>
+            <select id="orient" class="seg">
+              <option value="auto" data-short="自動">画像に合わせて自動</option>
+              <option value="portrait">縦</option>
+              <option value="landscape">横</option>
+            </select>
+          </div>
+          <div class="opt" id="margin-label">
+            <div class="opt-title">余白</div>
+            <select id="margin" class="seg">
+              <option value="0">なし</option>
+              <option value="5">5mm</option>
+              <option value="10" selected>10mm</option>
+              <option value="20">20mm</option>
+            </select>
+          </div>
+          <p class="muted small">すべてのファイルを並び順に1つのPDFにまとめます。PDFのページは元のサイズのまま結合します。</p>
+        </div>
+
+        <div class="opt" id="name-row">
+          <div class="opt-title">ファイル名</div>
+          <div class="name-field"><input type="text" id="out-name" value="converted"><span id="out-ext">.zip</span></div>
+        </div>
+      </div>
+
+      <div class="side-actions">
+        <p id="status" class="muted small center"></p>
+        <button type="button" id="download" class="btn primary block">ダウンロード</button>
+        <p class="muted small center">複数ファイルになる場合は ZIP にまとめます。サムネイルの「保存」で1件ずつ保存もできます。</p>
+      </div>
+    </aside>
+  </div>
+
+  <script src="vendor/pdf.min.js"></script>
+  <script src="vendor/pdf-lib.min.js"></script>
+  <script src="vendor/jszip.min.js"></script>
+  <script src="segmented.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

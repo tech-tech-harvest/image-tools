@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>写真トリミング＆リサイズ</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-inner">
+      <a class="brand" href="../index.html">ファイル変換ツール</a>
+      <nav class="site-nav">
+        <a href="../index.html">形式変換</a>
+        <a href="index.html" class="active" aria-current="page">トリミング＆リサイズ</a>
+        <a href="../mosaic/index.html">モザイク</a>
+        <a href="../bg-remove/index.html">背景削除</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="page-head">
+    <h1>写真トリミング＆リサイズ</h1>
+    <p class="sub">写真を選択 → 出力サイズを指定 → 切り取り範囲を調整 → ダウンロード</p>
+  </div>
+
+  <div class="layout" id="layout">
+    <main class="main-col">
+      <!-- 最初の画面：ドロップのみ -->
+      <section class="card drop-card" id="step-input">
+        <label id="drop-zone" class="drop-zone" for="file-input">
+          <input type="file" id="file-input" accept="image/*" hidden>
+          <div class="drop-inner">
+            <div class="drop-icon">⬆</div>
+            <p><strong>ここに写真をドラッグ＆ドロップ</strong></p>
+            <p class="muted">または クリックしてファイルを選択</p>
+          </div>
+        </label>
+      </section>
+
+      <!-- 読み込み後：右上のタブで「編集」と「プレビュー」を切り替える -->
+      <section class="card hidden" id="workspace">
+        <div class="pane-head">
+          <h2 id="file-info"></h2>
+          <div class="info-wrap">
+            <button type="button" class="info-btn" aria-label="操作のヒント" aria-expanded="false">i</button>
+            <p id="crop-hint" class="info-pop" role="tooltip">枠をドラッグで移動、四隅をドラッグで拡大・縮小（比率は固定）</p>
+          </div>
+        </div>
+        <div class="edit-bar">
+          <div class="bar-right">
+            <div class="view-switch" role="tablist">
+              <button type="button" role="tab" data-view="edit" class="active">編集</button>
+              <button type="button" role="tab" data-view="preview">プレビュー</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="view-edit">
+          <div class="crop-area">
+            <div id="stage" class="stage">
+              <img id="src-img" alt="" draggable="false">
+              <div id="crop-box" class="crop-box">
+                <div class="grid"></div>
+                <div class="handle nw" data-handle="nw"></div>
+                <div class="handle ne" data-handle="ne"></div>
+                <div class="handle sw" data-handle="sw"></div>
+                <div class="handle se" data-handle="se"></div>
+                <div class="handle edge n" data-handle="n"></div>
+                <div class="handle edge s" data-handle="s"></div>
+                <div class="handle edge e" data-handle="e"></div>
+                <div class="handle edge w" data-handle="w"></div>
+              </div>
+            </div>
+          </div>
+          <canvas id="loupe" class="loupe hidden"></canvas>
+          <div class="crop-tools">
+            <span id="crop-info" class="muted small"></span>
+            <button type="button" id="btn-reset" class="btn secondary">枠をリセット</button>
+          </div>
+        </div>
+
+        <div id="view-preview" class="hidden">
+          <div class="preview-wrap">
+            <canvas id="preview"></canvas>
+          </div>
+        </div>
+        <p id="output-info" class="muted small center"></p>
+      </section>
+    </main>
+
+    <!-- 出力設定（サイドバー） -->
+    <aside class="side card hidden" id="step-settings">
+      <div class="side-head">
+        <h2>出力設定</h2>
+      </div>
+
+      <div class="file-tabs" role="radiogroup" aria-label="サイズの決め方">
+        <label><input type="radio" name="mode" value="free" checked>自由</label>
+        <label><input type="radio" name="mode" value="pixel">ピクセル</label>
+        <label><input type="radio" name="mode" value="ratio">縦横比</label>
+      </div>
+
+      <div class="side-body file-panel">
+        <div class="tab-content">
+          <div id="pixel-fields" class="fields">
+            <label>幅 <input type="number" id="out-w" min="1" value="260"> px</label>
+            <label>高さ <input type="number" id="out-h" min="1" value="307"> px</label>
+          </div>
+
+          <div id="ratio-fields" class="fields hidden">
+            <label>横 <input type="number" id="ratio-w" min="0.01" step="any" value="260"></label>
+            <span class="x">:</span>
+            <label>縦 <input type="number" id="ratio-h" min="0.01" step="any" value="307"></label>
+            <p class="muted small">出力は切り取った範囲の元の解像度のまま保存されます。</p>
+          </div>
+
+          <p id="free-note" class="muted small hidden">切り取り範囲をマウスで自由に指定します。出力は切り取った範囲の元の解像度のまま保存されます。</p>
+        </div>
+      </div>
+
+      <div class="side-actions">
+        <button type="button" id="btn-download" class="btn primary block">ダウンロード</button>
+        <button type="button" id="btn-new" class="btn secondary block">別の写真を選ぶ</button>
+      </div>
+    </aside>
+  </div>
+
+  <script src="../segmented.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

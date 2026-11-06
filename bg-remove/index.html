@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>背景削除</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-inner">
+      <a class="brand" href="../index.html">ファイル変換ツール</a>
+      <nav class="site-nav">
+        <a href="../index.html">形式変換</a>
+        <a href="../resize/index.html">トリミング＆リサイズ</a>
+        <a href="../mosaic/index.html">モザイク</a>
+        <a href="index.html" class="active" aria-current="page">背景削除</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="page-head">
+    <h1>背景削除</h1>
+    <p class="sub">写真を選択 → AIで自動削除（または背景の色をクリック） → ダウンロード</p>
+  </div>
+
+  <div class="layout" id="layout">
+    <main class="main-col">
+      <!-- 最初の画面：ドロップのみ -->
+      <section class="card drop-card" id="step-input">
+        <label id="drop-zone" class="drop-zone" for="file-input">
+          <input type="file" id="file-input" accept="image/*" hidden>
+          <div class="drop-inner">
+            <div class="drop-icon">⬆</div>
+            <p><strong>ここに写真をドラッグ＆ドロップ</strong></p>
+            <p class="muted">または クリックしてファイルを選択</p>
+          </div>
+        </label>
+      </section>
+
+      <!-- 読み込み後：左に画像 -->
+      <section class="card hidden" id="workspace">
+        <div class="pane-head">
+          <h2 id="file-info"></h2>
+          <div class="info-wrap">
+            <button type="button" class="info-btn" aria-label="操作のヒント" aria-expanded="false">i</button>
+            <p id="tool-hint" class="info-pop" role="tooltip"></p>
+          </div>
+        </div>
+        <div class="edit-bar">
+          <button type="button" id="btn-undo" class="icon-btn" title="元に戻す（⌘Z / Ctrl+Z）" aria-label="元に戻す">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.7 9.7 0 0 0-6.7 2.7L3 8"/><path d="M3 3v5h5"/></svg>
+          </button>
+          <button type="button" id="btn-redo" class="icon-btn" title="やり直す（⇧⌘Z / Ctrl+Y）" aria-label="やり直す">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9 9.7 9.7 0 0 1 6.7 2.7L21 8"/><path d="M21 3v5h-5"/></svg>
+          </button>
+          <button type="button" id="btn-reset" class="btn secondary with-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>すべて元に戻す
+          </button>
+          <div class="bar-right">
+            <div class="view-switch" role="tablist">
+              <button type="button" role="tab" data-view="edit" class="active">編集</button>
+              <button type="button" role="tab" data-view="original">元画像</button>
+            </div>
+          </div>
+        </div>
+        <div class="crop-area">
+          <div id="stage" class="mosaic-stage">
+            <canvas id="view" class="checker"></canvas>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- 背景削除の設定（サイドバー） -->
+    <aside class="side card hidden" id="side">
+      <div class="side-head">
+        <h2>背景削除</h2>
+      </div>
+
+      <div class="side-body">
+        <div class="opt">
+          <button type="button" id="btn-ai" class="btn secondary block with-icon ai-btn">
+            <span class="ai-fill" aria-hidden="true"></span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8Z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8Z"/></svg>
+            <span class="ai-label" aria-live="polite">AIで背景を自動削除</span>
+          </button>
+          <p class="muted small credit">AI: ormbg（Apache-2.0）／ Transformers.js（Apache-2.0）</p>
+          <p id="ai-status" class="muted small">初回のみAIモデル（約44〜88MB）をダウンロードします。画像は外部に送信されません。</p>
+        </div>
+
+        <div class="opt divided">
+          <div class="opt-title">色で消す <span class="muted small">（AI未使用）</span></div>
+          <p class="muted small opt-note">画像の背景をクリックすると、つながっている色の近い範囲を消します。白い壁などシンプルな背景向けです。</p>
+          <div class="opt-title">許容範囲 <span class="opt-value"><span id="tolerance-val">20</span></span></div>
+          <input type="range" id="tolerance" min="1" max="60" step="1" value="20">
+        </div>
+
+        <div class="opt divided">
+          <div class="opt-title">背景</div>
+          <select id="bg-mode" class="seg">
+            <option value="transparent">透明</option>
+            <option value="white">白</option>
+            <option value="color">色を指定</option>
+          </select>
+          <label id="bg-color-row" class="color-row hidden">色 <input type="color" id="bg-color" value="#2563eb"></label>
+        </div>
+      </div>
+
+      <div class="side-actions">
+        <button type="button" id="btn-download" class="btn primary block">ダウンロード</button>
+        <button type="button" id="btn-new" class="btn secondary block">別の写真を選ぶ</button>
+      </div>
+    </aside>
+  </div>
+
+  <script src="../segmented.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
