@@ -9,6 +9,7 @@
     ['resize/index.html', 'トリミング＆リサイズ'],
     ['mosaic/index.html', 'モザイク'],
     ['bg-remove/index.html', '背景削除'],
+    ['watermark/index.html', '透かし'],
     ['metadata/index.html', '位置情報の削除'],
   ];
 
@@ -57,17 +58,25 @@
   document.addEventListener('click', (e) => { if (!header.contains(e.target)) setOpen(false); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setOpen(false); });
 
-  // ナビを中央に置いたまま、左右にロゴの幅ぶんの余白が取れるか（文字の幅は環境で変わるので実際に測る）
-  let needed = 0;
+  // 幅に応じて 3 段階で切り替える（文字の幅は環境で変わるので実際に測る）
+  //   中央に置ける → そのまま ／ ロゴの右なら1行に収まる → .inline ／ 収まらない → .compact（ハンバーガー）
+  let neededCenter = 0;
+  let neededInline = 0;
   function measure() {
-    header.classList.remove('compact');
+    header.classList.remove('compact', 'inline');
     const pad = parseFloat(getComputedStyle(inner).paddingLeft) * 2;
     const gap = parseFloat(getComputedStyle(inner).columnGap) || 16;
-    needed = nav.scrollWidth + 2 * ((brand ? brand.offsetWidth : 0) + gap) + pad;
+    const brandW = brand ? brand.offsetWidth : 0;
+    neededCenter = nav.scrollWidth + 2 * (brandW + gap) + pad;
+    header.classList.add('inline'); // 並べたときは項目の間隔が狭くなるので、その状態で測る
+    neededInline = nav.scrollWidth + brandW + gap + pad;
+    header.classList.remove('inline');
   }
   function fit() {
-    const compact = inner.clientWidth < needed;
+    const w = inner.clientWidth;
+    const compact = w < neededInline;
     header.classList.toggle('compact', compact);
+    header.classList.toggle('inline', !compact && w < neededCenter);
     if (!compact) setOpen(false);
   }
   measure();

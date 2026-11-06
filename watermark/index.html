@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>透かし</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-inner">
+      <a class="brand" href="../index.html">ファイル変換ツール</a>
+      <nav class="site-nav"></nav>
+    </div>
+  </header>
+  <script src="../nav.js"></script>
+
+  <div class="page-head">
+    <h1>透かし</h1>
+    <p class="sub">画像に文字やロゴの透かしをまとめて入れます。ファイルは外部に送信されません</p>
+  </div>
+
+  <div class="layout" id="layout">
+    <main class="main-col">
+      <!-- 最初の画面：ドロップのみ -->
+      <section class="card drop-card" id="drop-card">
+        <label id="drop" class="drop-zone" for="file-input">
+          <input type="file" id="file-input" accept="image/*" multiple hidden>
+          <div class="drop-inner">
+            <div class="drop-icon">⬆</div>
+            <p><strong>ここに画像をドラッグ＆ドロップ</strong></p>
+            <p class="muted">または クリックしてファイルを選択（複数可）</p>
+          </div>
+        </label>
+      </section>
+
+      <!-- 読み込み後：左にプレビューと画像の一覧 -->
+      <section class="card hidden" id="workspace">
+        <div class="pane-head">
+          <h2 id="file-info"></h2>
+          <div class="info-wrap">
+            <button type="button" class="info-btn" aria-label="操作のヒント" aria-expanded="false">i</button>
+            <p class="info-pop" role="tooltip">右の設定を変えるとプレビューにすぐ反映されます。下の一覧で画像を選ぶと、その画像での見え方を確認できます。保存すると、すべての画像に同じ透かしが入ります。</p>
+          </div>
+        </div>
+        <div class="edit-bar">
+          <button type="button" id="add-files" class="btn secondary with-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>画像を追加
+          </button>
+          <button type="button" id="clear" class="btn secondary with-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>すべて削除
+          </button>
+          <div class="bar-right">
+            <div class="view-switch" role="tablist">
+              <button type="button" role="tab" data-view="edit" class="active">透かしあり</button>
+              <button type="button" role="tab" data-view="original">元画像</button>
+            </div>
+          </div>
+        </div>
+        <div class="crop-area wm-area">
+          <canvas id="view" class="wm-view checker"></canvas>
+        </div>
+        <div id="strip" class="wm-strip" aria-label="読み込んだ画像"></div>
+      </section>
+    </main>
+
+    <!-- 透かしの設定（サイドバー） -->
+    <aside class="side card hidden" id="side">
+      <div class="side-head">
+        <h2>透かしの設定</h2>
+      </div>
+
+      <div class="file-tabs" role="radiogroup" aria-label="透かしの種類">
+        <label><input type="radio" name="kind" value="text" checked>文字</label>
+        <label><input type="radio" name="kind" value="logo">ロゴ</label>
+      </div>
+
+      <div class="side-body file-panel">
+        <div class="tab-content">
+          <!-- 文字 -->
+          <div id="text-fields">
+            <div class="opt-title">文字</div>
+            <textarea id="wm-text" class="text-input" rows="2" aria-label="透かしの文字"></textarea>
+            <div class="opt-title">色</div>
+            <div id="wm-colors" class="color-swatches"></div>
+            <div class="toggle-row">
+              <label class="toggle-chip"><input type="checkbox" id="wm-bold">太字</label>
+              <label class="toggle-chip"><input type="checkbox" id="wm-stroke">縁取り</label>
+            </div>
+          </div>
+
+          <!-- ロゴ -->
+          <div id="logo-fields" class="hidden">
+            <input type="file" id="logo-input" accept="image/*" hidden>
+            <label id="logo-drop" class="logo-drop" for="logo-input">
+              <span id="logo-empty">ロゴ画像を選ぶ<br><span class="muted small">（ドラッグ＆ドロップも可・透過 PNG がおすすめ）</span></span>
+              <img id="logo-preview" class="hidden" alt="">
+            </label>
+            <button type="button" id="logo-clear" class="btn secondary block hidden">ロゴを外す</button>
+          </div>
+        </div>
+
+        <div class="opt">
+          <div class="opt-title">入れ方</div>
+          <select id="wm-mode" class="seg">
+            <option value="tile">全体に繰り返し</option>
+            <option value="single">1か所</option>
+          </select>
+        </div>
+
+        <div class="opt hidden" id="pos-row">
+          <div class="opt-title">位置</div>
+          <div id="pos-grid" class="pos-grid" role="radiogroup" aria-label="位置"></div>
+        </div>
+
+        <div class="opt wm-sliders">
+          <div class="opt-title">大きさ <span class="opt-value"><span id="v-size">8</span>%</span></div>
+          <input type="range" id="wm-size" min="2" max="60" step="1" value="8" aria-label="大きさ（画像の短い辺に対する割合）">
+          <div class="opt-title">濃さ <span class="opt-value"><span id="v-opacity">30</span>%</span></div>
+          <input type="range" id="wm-opacity" min="5" max="100" step="1" value="30">
+          <div class="range-ends"><span>薄い</span><span>濃い</span></div>
+          <div class="opt-title">角度 <span class="opt-value"><span id="v-angle">-30</span>°</span></div>
+          <input type="range" id="wm-angle" min="-90" max="90" step="1" value="-30">
+          <div id="gap-row">
+            <div class="opt-title">間隔 <span class="opt-value"><span id="v-gap">80</span>%</span></div>
+            <input type="range" id="wm-gap" min="10" max="300" step="5" value="80">
+            <div class="range-ends"><span>詰める</span><span>空ける</span></div>
+          </div>
+          <div id="margin-row" class="hidden">
+            <div class="opt-title">端からの余白 <span class="opt-value"><span id="v-margin">4</span>%</span></div>
+            <input type="range" id="wm-margin" min="0" max="20" step="1" value="4">
+          </div>
+        </div>
+      </div>
+
+      <div class="side-actions">
+        <p id="status" class="muted small center"></p>
+        <button type="button" id="download" class="btn primary block">ダウンロード</button>
+      </div>
+    </aside>
+  </div>
+
+  <script src="../vendor/jszip.min.js"></script>
+  <script src="../segmented.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
