@@ -54,7 +54,8 @@
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* 保存できなくても動作は続ける */ }
   };
 
-  let logo = null; // 読み込んだロゴ画像（設定には保存しない）
+  let logo = null;     // 読み込んだロゴ画像
+  let logoFile = null; // 作業の保存に使うロゴのファイル
 
   // ================= 透かしの描画（プレビューと保存で共通） =================
   // 透かし1つ分の画像を作る。unit は画像の短い辺（大きさの基準）
@@ -189,6 +190,7 @@
     });
     if (!current && items.length) select(items[0]);
     refresh();
+    saving.schedule();
     $('status').textContent = skipped ? `画像以外のファイル ${skipped} 件は読み込みませんでした。` : '';
   }
 
@@ -216,10 +218,12 @@
       if (items.length) select(items[0]);
     }
     refresh();
+    saving.schedule();
   }
 
   async function select(item) {
     current = item;
+    saving.schedule();
     items.forEach((x) => x.el.classList.toggle('active', x === item));
     if (!previewCache || previewCache.item !== item) {
       try {
@@ -358,7 +362,8 @@
   $('wm-angle').addEventListener('dblclick', () => update({ [angleKey()]: 0 }));
 
   // ---- ロゴ ----
-  async function setLogo(file) {
+  // restoring: 前回の作業の復元（選んでいる種類＝文字／ロゴは変えない）
+  async function setLogo(file, restoring) {
     if (!file || !file.type.startsWith('image/')) return;
     const url = URL.createObjectURL(file);
     try {
@@ -368,11 +373,14 @@
       alert('ロゴ画像を読み込めませんでした。');
       return;
     }
+    logoFile = file;
     $('logo-preview').src = url;
     $('logo-preview').classList.remove('hidden');
     $('logo-empty').classList.add('hidden');
     $('logo-clear').classList.remove('hidden');
-    update({ kind: 'logo' });
+    if (restoring) redraw();
+    else update({ kind: 'logo' });
+    saving.schedule();
   }
   $('logo-input').addEventListener('change', (e) => {
     setLogo(e.target.files[0]);
@@ -390,6 +398,8 @@
   $('logo-clear').addEventListener('click', () => {
     if ($('logo-preview').src) URL.revokeObjectURL($('logo-preview').src);
     logo = null;
+    logoFile = null;
+    saving.schedule();
     $('logo-preview').removeAttribute('src');
     $('logo-preview').classList.add('hidden');
     $('logo-empty').classList.remove('hidden');
@@ -473,6 +483,55 @@
       btn.disabled = false;
     }
   });
+
+  // ================= 作業の保存・復元と、ほかの道具との受け渡し（store.js） =================
+  // 透かしの設定は localStorage に保存済み。ここでは画像の一覧とロゴを保存する
+  const PAGE = 'watermark/index.html';
+  const store = window.ToolStore;
+  let restoring = true; // 復元が終わるまでは保存しない（空の一覧で上書きしないため）
+  const saving = store
+    ? store.autosave(PAGE, async () => {
+      if (restoring) return undefined;
+      if (!items.length && !logoFile) return null; // すべて外したら保存も消す
+      return {
+        files: [...items.map((x) => ({ blob: x.file, name: x.file.name, key: 'image' })),
+          ...(logoFile ? [{ blob: logoFile, name: logoFile.name, key: 'logo' }] : [])],
+        data: { current: Math.max(0, items.indexOf(current)) },
+      };
+    })
+    : { schedule() {} };
+
+  if (store) {
+    // 選んでいる画像に透かしを入れて送る
+    store.mountSendTo($('send-slot'), PAGE, async () => {
+      if (!current) return null;
+      if (settings.kind === 'logo' && !logo) throw new Error('ロゴ画像を選んでください');
+      return [await render(current)];
+    });
+    (async () => {
+      const saved = await store.load(PAGE);
+      const handed = await store.takeHandoff(PAGE);
+      if (saved) {
+        const logoSaved = saved.files.find((f) => f.key === 'logo');
+        if (logoSaved) await setLogo(logoSaved, true);
+        const images = saved.files.filter((f) => f.key === 'image');
+        if (images.length) {
+          addFiles(images);
+          const pick = items[saved.data.current];
+          if (pick) select(pick);
+        }
+      }
+      // ほかの道具から送られた画像は、一覧の最後に足して選ぶ
+      if (handed && handed.length) {
+        addFiles(handed);
+        select(items[items.length - 1]);
+      }
+      restoring = false;
+      saving.schedule();
+    })();
+  } else {
+    restoring = false;
+  }
 
   syncUI();
 })();

@@ -1348,3 +1348,8 @@ canvas.checker {
 .pos-cell:hover { background: #f3f4f6; }
 .pos-cell.active { border-color: var(--accent); background: #eff6ff; }
 .pos-cell.active::after { background: var(--accent); }
+
+/* 「ほかの道具で開く」 */
+.send-slot:empty { display: none; }
+.send-slot { margin-top: 6px; }
+.send-slot .dd { font-weight: normal; color: var(--text); border-color: var(--border); }

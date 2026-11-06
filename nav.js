@@ -34,6 +34,17 @@
   const brand = document.querySelector('.brand');
   if (brand) brand.href = new URL('index.html', root).href;
 
+  // 画像の受け渡し（store.js）から使えるようにする
+  window.SiteNav = { pages: PAGES, url: (path) => new URL(path, root).href };
+
+  // ナビで別の道具に移る前に、まだ保存していない作業を保存する
+  [...nav.querySelectorAll('a'), brand].filter(Boolean).forEach((a) => a.addEventListener('click', async (e) => {
+    if (!window.ToolStore || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    e.preventDefault();
+    await window.ToolStore.flushAll();
+    location.href = a.href;
+  }));
+
   // ---- 1行に収まらないときはハンバーガーメニューにする ----
   const header = document.querySelector('.site-header');
   const inner = header.querySelector('.site-inner');

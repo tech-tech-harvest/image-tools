@@ -42,6 +42,7 @@
   const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
 
   let fileName = 'image';
+  let currentFile = null; // 作業の保存に使う元のファイル
   let sourceType = '';
   let src = null;     // 元画像
   let layer = null;   // 効果を範囲で切り抜くための作業用
@@ -88,7 +89,8 @@
   window.addEventListener('dragover', (e) => e.preventDefault());
   window.addEventListener('drop', (e) => e.preventDefault());
 
-  function loadFile(file) {
+  // saved: 保存しておいた作業（復元するとき）
+  function loadFile(file, saved) {
     if (!file.type.startsWith('image/')) {
       alert('画像ファイルを選択してください。');
       return;
@@ -98,6 +100,7 @@
     im.onload = () => {
       URL.revokeObjectURL(url);
       setup(im, file);
+      if (saved) restoreWork(saved);
     };
     im.onerror = () => {
       URL.revokeObjectURL(url);
@@ -109,6 +112,7 @@
   function setup(im, file) {
     fileName = file.name.replace(/\.[^.]+$/, '') || 'image';
     sourceType = file.type;
+    currentFile = file;
     const iw = im.naturalWidth;
     const ih = im.naturalHeight;
     const s = Math.min(1, MAX_CANVAS_SIDE / iw, MAX_CANVAS_SIDE / ih, Math.sqrt(MAX_CANVAS_AREA / (iw * ih)));
@@ -283,6 +287,7 @@
   }
 
   function redraw() {
+    session.schedule();
     const ctx = view.getContext('2d');
     ctx.clearRect(0, 0, view.width, view.height);
     ctx.drawImage(src, 0, 0);
@@ -939,14 +944,13 @@
     return { type: 'image/png', ext: 'png' };
   }
 
-  $('btn-download').addEventListener('click', () => {
-    if (!src) return;
+  // 保存される画像（元画像を表示中でも、加工したものを作る）
+  function makeBlob() {
     const viewingOriginal = showOriginal;
     showOriginal = false;
     redraw();
     const { type, ext } = outputFormat(sourceType);
     let canvas = view;
-
     // JPEGは透過非対応なので白背景で合成
     if (type === 'image/jpeg') {
       canvas = makeCanvas(view.width, view.height);
@@ -955,21 +959,25 @@
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(view, 0, 0);
     }
-
-    canvas.toBlob((blob) => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `${fileName}_mosaic.${ext}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    }, type, JPEG_QUALITY);
+    const promise = new Promise((resolve) => canvas.toBlob(resolve, type, JPEG_QUALITY));
     // toBlob は呼んだ時点の内容を書き出すので、すぐ表示を戻してよい
     if (viewingOriginal) {
       showOriginal = true;
       redraw();
     }
+    return promise.then((blob) => ({ blob, name: `${fileName}_mosaic.${ext}` }));
+  }
+
+  $('btn-download').addEventListener('click', async () => {
+    if (!src) return;
+    const { blob, name } = await makeBlob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
 
   const confirmDiscard = () => !undoStack.length || confirm('いまの編集内容は破棄されます。別の写真に入れ替えますか？');
@@ -996,6 +1004,74 @@
     const file = e.dataTransfer.files[0];
     if (file && confirmDiscard()) loadFile(file);
   });
+
+  // ================= 作業の保存・復元と、ほかの道具との受け渡し（store.js） =================
+  const PAGE = 'mosaic/index.html';
+  const store = window.ToolStore;
+  const MASK_KEYS = ['mask-mosaic', 'mask-blur', 'mask-erase'];
+  const toBlob = (c) => new Promise((resolve) => c.toBlob(resolve, 'image/png'));
+  const session = store
+    ? store.autosave(PAGE, async () => {
+      if (!currentFile || !src) return undefined;
+      const maskBlobs = await Promise.all(masks().map(toBlob));
+      return {
+        files: [{ blob: currentFile, name: currentFile.name, key: 'image' },
+          ...maskBlobs.map((blob, i) => ({ blob, name: `${MASK_KEYS[i]}.png`, key: MASK_KEYS[i] }))],
+        data: {
+          shapes,
+          painted: EFFECTS.map((n) => fx[n].painted),
+          block: blockInput.value, blur: blurInput.value, brush: brushInput.value,
+          effect: effectSel.value, shapeType: shapeType.value, paintMode: paintMode.value, tool: getTool(),
+        },
+      };
+    })
+    : { schedule() {} };
+
+  // 保存しておいた塗った範囲・図形・設定を戻す
+  async function restoreWork({ files, data }) {
+    const bitmaps = await Promise.all(MASK_KEYS.map((k) => {
+      const f = files.find((x) => x.key === k);
+      return f ? createImageBitmap(f) : null;
+    }));
+    masks().forEach((m, i) => {
+      if (!bitmaps[i]) return;
+      const ctx = m.getContext('2d');
+      ctx.clearRect(0, 0, m.width, m.height);
+      ctx.drawImage(bitmaps[i], 0, 0, m.width, m.height);
+    });
+    shapes = data.shapes || [];
+    EFFECTS.forEach((n, i) => { fx[n].painted = !!(data.painted && data.painted[i]); fx[n].canvas = null; });
+    blockInput.value = data.block;
+    blurInput.value = data.blur;
+    brushInput.value = data.brush;
+    $('brush-val').textContent = brushInput.value;
+    // 選択肢は change を出さずに値だけ戻す（change だと選択中の図形に反映する処理が動くため）
+    [[effectSel, data.effect], [shapeType, data.shapeType], [paintMode, data.paintMode]].forEach(([el, v]) => {
+      if (!v) return;
+      el.value = v;
+      el.dispatchEvent(new Event('input'));
+    });
+    if (data.tool) document.querySelector(`input[name="tool"][value="${data.tool}"]`).checked = true;
+    syncRoundTools();
+    updateStrengthUI();
+    updateToolUI();
+    redraw();
+  }
+
+  // サイドバーの設定を変えたら保存する（画像の上の操作は redraw で保存する）
+  ['input', 'change'].forEach((ev) => $('side').addEventListener(ev, () => session.schedule()));
+
+  if (store) {
+    store.mountSendTo($('send-slot'), PAGE, async () => (src ? [await makeBlob()] : null));
+    (async () => {
+      // ほかの道具から送られた画像があればそれを開き、なければ前回の作業を復元する
+      const handed = await store.takeHandoff(PAGE);
+      if (handed && handed.length) return loadFile(handed[0]);
+      const saved = await store.load(PAGE);
+      const image = saved && saved.files.find((f) => f.key === 'image');
+      if (image) loadFile(image, saved);
+    })();
+  }
 
   updateStrengthUI();
   updateToolUI();

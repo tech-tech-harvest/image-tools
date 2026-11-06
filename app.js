@@ -441,6 +441,7 @@
   const readyItems = () => items.filter((x) => x.ready);
 
   function refresh() {
+    saving.schedule();
     const has = items.length > 0;
     // ファイルがなければドロップ画面、あれば一覧＋設定の編集画面
     $('drop-card').classList.toggle('hidden', has);
@@ -713,4 +714,62 @@
   downloadBtn.addEventListener('click', () =>
     runExport(items, (outName.value.trim() || 'converted').replace(/\.(pdf|zip)$/i, ''))
   );
+
+  // ================= 作業の保存・復元と、ほかの道具からの受け取り（store.js） =================
+  const PAGE = 'index.html';
+  const store = window.ToolStore;
+  const SETTING_SELECTS = { outFormat, dpi: dpiSel, paper, orient, margin };
+  let restoring = true; // 復元が終わるまでは保存しない（空の一覧で上書きしないため）
+  const saving = store
+    ? store.autosave(PAGE, async () => {
+      if (restoring) return undefined;
+      if (!items.length) return null; // すべて外したら保存も消す
+      return {
+        files: items.map((x) => ({ blob: x.file, name: x.file.name })),
+        data: {
+          ranges: items.map((x) => (x.rangeInput ? x.rangeInput.value : '')),
+          settings: Object.fromEntries(Object.entries(SETTING_SELECTS).map(([k, el]) => [k, el.value])),
+          quality: quality.value,
+          outName: outName.value,
+          nameEdited,
+        },
+      };
+    })
+    : { schedule() {} };
+  // 設定を変えたら保存する
+  ['input', 'change'].forEach((ev) => $('side').addEventListener(ev, () => saving.schedule()));
+
+  if (store) {
+    (async () => {
+      const saved = await store.load(PAGE);
+      const handed = await store.takeHandoff(PAGE);
+      if (saved) {
+        const d = saved.data;
+        Object.entries(d.settings || {}).forEach(([k, v]) => {
+          const el = SETTING_SELECTS[k];
+          if (!el || v == null) return;
+          el.value = v;
+          el.dispatchEvent(new Event('input')); // ボタンの表示を合わせる
+        });
+        quality.value = d.quality;
+        outName.value = d.outName;
+        nameEdited = !!d.nameEdited;
+        if (saved.files.length) {
+          await addFiles(saved.files);
+          // PDF のページ範囲を戻す
+          items.forEach((x, i) => {
+            if (!x.rangeInput || !d.ranges[i]) return;
+            x.rangeInput.value = d.ranges[i];
+            x.rangeInput.dispatchEvent(new Event('input'));
+          });
+        }
+      }
+      // ほかの道具から送られた画像は、一覧の最後に足す
+      if (handed && handed.length) await addFiles(handed);
+      restoring = false;
+      refresh();
+    })();
+  } else {
+    restoring = false;
+  }
 })();

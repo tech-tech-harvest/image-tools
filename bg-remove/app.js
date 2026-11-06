@@ -41,6 +41,7 @@
   const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
 
   let fileName = 'image';
+  let currentFile = null; // 作業の保存に使う元のファイル
   let sourceType = '';
   let src = null;   // 元画像
   let mask = null;  // 残す範囲（不透明な部分が残る）
@@ -81,7 +82,8 @@
   window.addEventListener('dragover', (e) => e.preventDefault());
   window.addEventListener('drop', (e) => e.preventDefault());
 
-  function loadFile(file) {
+  // saved: 保存しておいた作業（復元するとき）
+  function loadFile(file, saved) {
     if (!file.type.startsWith('image/')) {
       alert('画像ファイルを選択してください。');
       return;
@@ -91,6 +93,7 @@
     im.onload = () => {
       URL.revokeObjectURL(url);
       setup(im, file);
+      if (saved) restoreWork(saved);
     };
     im.onerror = () => {
       URL.revokeObjectURL(url);
@@ -100,6 +103,7 @@
   }
 
   function setup(im, file) {
+    currentFile = file;
     fileName = file.name.replace(/\.[^.]+$/, '') || 'image';
     sourceType = file.type;
     const iw = im.naturalWidth;
@@ -171,6 +175,7 @@
   }
 
   function redraw() {
+    saving.schedule();
     const ctx = view.getContext('2d');
     if (showOriginal) {
       ctx.clearRect(0, 0, view.width, view.height);
@@ -773,20 +778,25 @@ self.onmessage = (e) => handle(e.data);`;
     return { type: 'image/png', ext: 'png' };
   }
 
-  $('btn-download').addEventListener('click', () => {
-    if (!src) return;
+  // 保存される画像（ダウンロードとほかの道具への受け渡しで共通）
+  function makeBlob() {
     const { type, ext } = outputFormat();
     const canvas = makeCanvas(view.width, view.height);
     compose(canvas.getContext('2d'), true);
-    canvas.toBlob((blob) => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `${fileName}_nobg.${ext}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    }, type, JPEG_QUALITY);
+    return new Promise((resolve) => canvas.toBlob(resolve, type, JPEG_QUALITY))
+      .then((blob) => ({ blob, name: `${fileName}_nobg.${ext}` }));
+  }
+
+  $('btn-download').addEventListener('click', async () => {
+    if (!src) return;
+    const { blob, name } = await makeBlob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
 
   const confirmDiscard = () => !undoStack.length || confirm('いまの編集内容は破棄されます。別の写真に入れ替えますか？');
@@ -813,4 +823,57 @@ self.onmessage = (e) => handle(e.data);`;
     if (file && confirmDiscard()) loadFile(file);
   });
 
+  // ================= 作業の保存・復元と、ほかの道具との受け渡し（store.js） =================
+  const PAGE = 'bg-remove/index.html';
+  const store = window.ToolStore;
+  // 自動保存（「色で消す」の一連の操作を表す session とは別もの）
+  const saving = store
+    ? store.autosave(PAGE, async () => {
+      if (!currentFile || !mask) return undefined;
+      const maskBlob = await new Promise((resolve) => mask.toBlob(resolve, 'image/png'));
+      return {
+        files: [{ blob: currentFile, name: currentFile.name, key: 'image' }, { blob: maskBlob, name: 'mask.png', key: 'mask' }],
+        data: { method: getMethod(), tolerance: toleranceInput.value, bgMode: bgMode.value, bgColor: bgColor.value },
+      };
+    })
+    : { schedule() {} };
+
+  // 保存しておいた残す範囲と設定を戻す
+  async function restoreWork({ files, data }) {
+    const m = files.find((f) => f.key === 'mask');
+    if (m) {
+      const bmp = await createImageBitmap(m);
+      const ctx = mask.getContext('2d');
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.clearRect(0, 0, mask.width, mask.height);
+      ctx.drawImage(bmp, 0, 0, mask.width, mask.height);
+    }
+    const method = document.querySelector(`input[name="method"][value="${data.method}"]`);
+    if (method) {
+      method.checked = true;
+      updateMethodUI();
+    }
+    toleranceInput.value = data.tolerance;
+    renderSwatches();
+    bgColor.value = data.bgColor;
+    bgMode.value = data.bgMode;
+    bgMode.dispatchEvent(new Event('input')); // ボタンの表示を合わせる
+    $('bg-color-row').classList.toggle('hidden', bgMode.value !== 'color');
+    redraw();
+  }
+
+  // サイドバーの設定を変えたら保存する（画像の上の操作は redraw で保存する）
+  ['input', 'change'].forEach((ev) => $('side').addEventListener(ev, () => saving.schedule()));
+
+  if (store) {
+    store.mountSendTo($('send-slot'), PAGE, async () => (src ? [await makeBlob()] : null));
+    (async () => {
+      // ほかの道具から送られた画像があればそれを開き、なければ前回の作業を復元する
+      const handed = await store.takeHandoff(PAGE);
+      if (handed && handed.length) return loadFile(handed[0]);
+      const saved = await store.load(PAGE);
+      const image = saved && saved.files.find((f) => f.key === 'image');
+      if (image) loadFile(image, saved);
+    })();
+  }
 })();

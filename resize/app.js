@@ -36,6 +36,7 @@
   const loupe = $('loupe');
 
   let fileName = 'image';
+  let currentFile = null; // 作業の保存に使う元のファイル
   let sourceType = '';
   // 切り取り範囲（元画像のピクセル座標）
   let crop = { x: 0, y: 0, w: 0, h: 0 };
@@ -66,13 +67,15 @@
   window.addEventListener('dragover', (e) => e.preventDefault());
   window.addEventListener('drop', (e) => e.preventDefault());
 
-  function loadFile(file) {
+  // saved: 保存しておいた作業（復元するとき）
+  function loadFile(file, saved) {
     if (!file.type.startsWith('image/')) {
       alert('画像ファイルを選択してください。');
       return;
     }
     fileName = file.name.replace(/\.[^.]+$/, '') || 'image';
     sourceType = file.type;
+    currentFile = file;
     const url = URL.createObjectURL(file);
     img.onload = () => {
       fileInfo.textContent = `${file.name}（${img.naturalWidth} × ${img.naturalHeight} px）`;
@@ -85,6 +88,7 @@
       setView('edit');
       applyOriginalRatio(); // 「元の写真と同じ」なら、新しい写真の比率にする
       resetCrop();
+      if (saved) restoreSettings(saved);
       window.scrollTo(0, 0);
     };
     img.onerror = () => alert('画像を読み込めませんでした。');
@@ -705,6 +709,7 @@
   };
 
   function updateSummary() {
+    session.schedule();
     const size = getOutputSize();
     if (!size || !crop.w) {
       $('sum-dim').textContent = $('sum-ratio').textContent = $('sum-size').textContent = '—';
@@ -786,6 +791,64 @@
     fileInput.value = '';
     fileInput.click();
   });
+
+  // ================= 作業の保存・復元と、ほかの道具との受け渡し（store.js） =================
+  const PAGE = 'resize/index.html';
+  const store = window.ToolStore;
+  const session = store
+    ? store.autosave(PAGE, async () => (currentFile ? {
+      files: [{ blob: currentFile, name: currentFile.name }],
+      data: {
+        mode: getMode(),
+        outW: outW.value, outH: outH.value,
+        ratioW: ratioW.value, ratioH: ratioH.value, followOriginal,
+        shape: document.querySelector('input[name="shape"]:checked').value, radius: radiusInput.value,
+        sizeMode: sizeMode.value, sizeValue: sizeValue.value, sizeUnit: sizeUnit.value,
+        crop: { ...crop },
+      },
+    } : undefined))
+    : { schedule() {} };
+
+  // 保存しておいた設定と切り取り範囲を戻す
+  function restoreSettings(d) {
+    document.querySelector(`input[name="shape"][value="${d.shape}"]`).checked = true;
+    radiusInput.value = d.radius;
+    outW.value = d.outW;
+    outH.value = d.outH;
+    ratioW.value = d.ratioW;
+    ratioH.value = d.ratioH;
+    followOriginal = d.followOriginal;
+    sizeMode.value = d.sizeMode;
+    sizeValue.value = d.sizeValue;
+    sizeUnit.value = d.sizeUnit;
+    const mode = document.querySelector(`input[name="mode"][value="${d.mode}"]`);
+    mode.checked = true;
+    mode.dispatchEvent(new Event('change')); // タブの表示を切り替える（切り取り範囲は下で戻す）
+    if (followOriginal) ratioPreset.value = 'original';
+    updatePixelUI();
+    updateRatioUI();
+    updateSizeUI();
+    onShapeChange();
+    if (d.crop && d.crop.w) {
+      crop = d.crop;
+      render();
+    }
+  }
+
+  if (store) {
+    store.mountSendTo($('send-slot'), PAGE, async () => {
+      if (!crop.w) return null;
+      const out = await makeOutput();
+      return [{ blob: out.blob, name: `${fileName}_${out.w}x${out.h}.${out.ext}` }];
+    });
+    (async () => {
+      // ほかの道具から送られた画像があればそれを開き、なければ前回の作業を復元する
+      const handed = await store.takeHandoff(PAGE);
+      if (handed && handed.length) return loadFile(handed[0]);
+      const saved = await store.load(PAGE);
+      if (saved && saved.files[0]) loadFile(saved.files[0], saved.data);
+    })();
+  }
 
   // 編集中の画像の上に写真をドロップすると入れ替える
   const hasFiles = (e) => [...e.dataTransfer.types].includes('Files');

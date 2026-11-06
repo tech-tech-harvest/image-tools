@@ -48,6 +48,7 @@
 
   let fileName = 'image';
   let sourceType = '';
+  let currentFile = null; // 作業の保存に使う元のファイル
   let baseFull = null;  // 元画像（EXIF の向きを反映済み）
   let baseSmall = null; // 画面表示用の縮小版
   let ps = 1;           // 元の解像度 → 表示用の縮小率
@@ -76,7 +77,8 @@
   window.addEventListener('dragover', (e) => e.preventDefault());
   window.addEventListener('drop', (e) => e.preventDefault());
 
-  function loadFile(file) {
+  // saved: 保存しておいた作業（復元するとき）
+  function loadFile(file, saved) {
     if (!file.type.startsWith('image/')) {
       alert('画像ファイルを選択してください。');
       return;
@@ -85,7 +87,7 @@
     const im = new Image();
     im.onload = () => {
       URL.revokeObjectURL(url);
-      setup(im, file);
+      setup(im, file, saved);
     };
     im.onerror = () => {
       URL.revokeObjectURL(url);
@@ -94,9 +96,10 @@
     im.src = url;
   }
 
-  function setup(im, file) {
+  function setup(im, file, saved) {
     fileName = file.name.replace(/\.[^.]+$/, '') || 'image';
     sourceType = file.type;
+    currentFile = file;
     const iw = im.naturalWidth;
     const ih = im.naturalHeight;
     const s = Math.min(1, MAX_CANVAS_SIDE / iw, MAX_CANVAS_SIDE / ih, Math.sqrt(MAX_CANVAS_AREA / (iw * ih)));
@@ -108,13 +111,16 @@
     sctx.imageSmoothingQuality = 'high';
     sctx.drawImage(baseFull, 0, 0, baseSmall.width, baseSmall.height);
 
-    state = defaultState();
+    state = saved && saved.state ? saved.state : defaultState();
+    nextTextId = Math.max(nextTextId, ...state.texts.map((t) => t.id + 1));
     history = [];
     historyIndex = -1;
     selectedText = null;
     geomCache = colorCache = null;
+    penLayer = null;
     estimate = null;
     commit();
+    if (saved && saved.tool) document.querySelector(`input[name="tool"][value="${saved.tool}"]`).click();
     $('file-info').textContent = `${file.name}（${iw} × ${ih} px）`;
     $('save-result').textContent = '';
 
@@ -951,6 +957,7 @@
     history.push(snap);
     if (history.length > HISTORY_LIMIT) history.shift();
     historyIndex = history.length - 1;
+    session.schedule();
     $('save-result').textContent = ''; // 前に保存したときの表示は、編集したら消す
     updateUI();
     updateSummary();
@@ -1145,5 +1152,30 @@
   });
 
   window.addEventListener('resize', () => drawOverlay());
+
+  // ================= 作業の保存・復元と、ほかの道具との受け渡し（store.js） =================
+  const PAGE = 'edit/index.html';
+  const store = window.ToolStore;
+  const session = store
+    ? store.autosave(PAGE, async () => (currentFile ? {
+      files: [{ blob: currentFile, name: currentFile.name }],
+      data: { state, tool: getTool() },
+    } : undefined))
+    : { schedule() {} };
+  if (store) {
+    store.mountSendTo($('send-slot'), PAGE, async () => {
+      if (!baseFull) return null;
+      const out = await makeOutput();
+      return [{ blob: out.blob, name: `${fileName}_edited.${out.ext}` }];
+    });
+    (async () => {
+      // ほかの道具から送られた画像があればそれを開き、なければ前回の作業を復元する
+      const handed = await store.takeHandoff(PAGE);
+      if (handed && handed.length) return loadFile(handed[0]);
+      const saved = await store.load(PAGE);
+      if (saved && saved.files[0]) loadFile(saved.files[0], saved.data);
+    })();
+  }
+  document.querySelectorAll('input[name="tool"]').forEach((r) => r.addEventListener('change', () => session.schedule()));
   onToolChange();
 })();

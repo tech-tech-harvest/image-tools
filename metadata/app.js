@@ -430,6 +430,7 @@
   }
 
   function refresh() {
+    saving.schedule();
     const has = items.length > 0;
     $('drop-card').classList.toggle('hidden', has);
     $('list-card').classList.toggle('hidden', !has);
@@ -475,4 +476,37 @@
     downloadBlob(await zip.generateAsync({ type: 'blob', compression: 'STORE' }), 'no-location.zip');
     refresh();
   });
+
+  // ================= 作業の保存・復元と、ほかの道具からの受け取り（store.js） =================
+  const PAGE = 'metadata/index.html';
+  const store = window.ToolStore;
+  let restoring = true; // 復元が終わるまでは保存しない（空の一覧で上書きしないため）
+  const saving = store
+    ? store.autosave(PAGE, async () => {
+      if (restoring) return undefined;
+      if (!items.length) return null; // すべて外したら保存も消す
+      return { files: items.map((x) => ({ blob: x.file, name: x.file.name })), data: { mode: getMode() } };
+    })
+    : { schedule() {} };
+
+  if (store) {
+    (async () => {
+      const saved = await store.load(PAGE);
+      const handed = await store.takeHandoff(PAGE);
+      if (saved) {
+        const mode = document.querySelector(`input[name="mode"][value="${saved.data.mode}"]`);
+        if (mode) {
+          mode.checked = true;
+          $('mode-note').textContent = MODE_NOTES[getMode()];
+        }
+        if (saved.files.length) await addFiles(saved.files);
+      }
+      // ほかの道具から送られた画像は、一覧の最後に足す
+      if (handed && handed.length) await addFiles(handed);
+      restoring = false;
+      saving.schedule();
+    })();
+  } else {
+    restoring = false;
+  }
 })();
