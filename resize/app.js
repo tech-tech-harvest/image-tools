@@ -145,6 +145,7 @@
       ratioFields.classList.toggle('hidden', mode !== 'ratio');
       freeNote.classList.toggle('hidden', mode !== 'free');
       $('size-opt').classList.toggle('hidden', mode === 'pixel');
+      $('shape-opt').classList.toggle('hidden', mode !== 'free');
       stage.classList.toggle('free', mode === 'free');
       cropHint.textContent = mode === 'free'
         ? '画像上をドラッグで範囲を指定。枠をドラッグで移動、四隅・各辺をドラッグでサイズを自由に変更'
@@ -296,7 +297,8 @@
   }
 
   // ================= 切り抜く形（四角・角丸・円） =================
-  const getShape = () => document.querySelector('input[name="shape"]:checked').value;
+  // 形を選べるのは「自由」のときだけ。ピクセル・縦横比のときは四角として扱う
+  const getShape = () => (getMode() === 'free' ? document.querySelector('input[name="shape"]:checked').value : 'rect');
   const radiusInput = $('radius');
 
   // 幅 w・高さ h の枠に、形の輪郭を描く（円は枠に内接する楕円。正方形なら正円）
@@ -317,11 +319,17 @@
   document.querySelectorAll('input[name="shape"]').forEach((el) => el.addEventListener('change', onShapeChange));
   radiusInput.addEventListener('input', onShapeChange);
 
-  // 正円にする：縦横比のタブで 1:1 を選ぶ
+  // 正円にする：今の枠の中心はそのままで、枠を正方形にする（短い辺に合わせる）
   $('make-circle').addEventListener('click', () => {
-    document.querySelector('input[name="mode"][value="ratio"]').click();
-    ratioPreset.value = '1:1';
-    ratioPreset.dispatchEvent(new Event('change'));
+    if (!crop.w) return;
+    const size = Math.min(crop.w, crop.h);
+    crop = {
+      x: clamp(crop.x + (crop.w - size) / 2, 0, img.naturalWidth - size),
+      y: clamp(crop.y + (crop.h - size) / 2, 0, img.naturalHeight - size),
+      w: size,
+      h: size,
+    };
+    render();
   });
 
   // ================= 切り取り枠 =================
