@@ -76,6 +76,7 @@
     const url = URL.createObjectURL(file);
     img.onload = () => {
       fileInfo.textContent = `${file.name}（${img.naturalWidth} × ${img.naturalHeight} px）`;
+      $('save-result').textContent = '';
       // ドロップ画面から、左に作業領域・右に設定の編集画面へ
       stepInput.classList.add('hidden');
       workspace.classList.remove('hidden');
@@ -138,6 +139,7 @@
       pixelFields.classList.toggle('hidden', mode !== 'pixel');
       ratioFields.classList.toggle('hidden', mode !== 'ratio');
       freeNote.classList.toggle('hidden', mode !== 'free');
+      $('size-opt').classList.toggle('hidden', mode === 'pixel');
       stage.classList.toggle('free', mode === 'free');
       cropHint.textContent = mode === 'free'
         ? '画像上をドラッグで範囲を指定。枠をドラッグで移動、四隅・各辺をドラッグでサイズを自由に変更'
@@ -439,9 +441,58 @@
     outputInfo.textContent = `出力サイズ: ${size.w} × ${size.h} px`;
   }
 
-  $('btn-download').addEventListener('click', () => {
+  // ---- ファイルの重さの指定 ----
+  const sizeMode = $('size-mode');
+  const sizeValue = $('size-value');
+  const sizeUnit = $('size-unit');
+  // 重さの上限（バイト）。「そのまま」なら 0、入力が正しくなければ NaN
+  const readLimit = () => {
+    if (sizeMode.value !== 'limit') return 0;
+    const v = parseFloat(sizeValue.value) * Number(sizeUnit.value);
+    return v >= 1 ? Math.round(v) : NaN;
+  };
+  const updateSizeUI = () => {
+    $('size-input').classList.toggle('hidden', sizeMode.value !== 'limit');
+    sizeValue.classList.toggle('invalid', Number.isNaN(readLimit()));
+  };
+  sizeMode.addEventListener('change', () => {
+    updateSizeUI();
+    if (sizeMode.value === 'limit') sizeValue.focus();
+  });
+  [sizeValue, sizeUnit].forEach((el) => el.addEventListener('input', updateSizeUI));
+  const MIN_QUALITY = 0.3;
+  const formatBytes = (n) => (n < 1e6 ? `${Math.max(1, Math.round(n / 1000))}KB` : `${(n / 1e6).toFixed(1)}MB`);
+  const encode = (canvas, type, q) => new Promise((res) => canvas.toBlob(res, type, q));
+
+  // 指定した重さ以下で一番きれいな画質を探す（このページでは指定された幅・高さは変えない）
+  async function encodeWithin(canvas, type, limit) {
+    const first = await encode(canvas, type, JPEG_QUALITY);
+    if (first.size <= limit) return { blob: first, reached: true };
+    let lo = MIN_QUALITY;
+    let hi = JPEG_QUALITY;
+    let best = await encode(canvas, type, lo);
+    if (best.size > limit) return { blob: best, reached: false }; // 一番低い画質でも収まらない
+    for (let i = 0; i < 6; i++) {
+      const q = (lo + hi) / 2;
+      const b = await encode(canvas, type, q);
+      if (b.size <= limit) { best = b; lo = q; } else { hi = q; }
+    }
+    return { blob: best, reached: true };
+  }
+
+  $('btn-download').addEventListener('click', async () => {
     drawOutput();
-    const { type, ext } = outputFormat(sourceType);
+    // ピクセル指定のときは重さを指定しない（幅・高さで決まる）
+    const limit = getMode() === 'pixel' ? 0 : readLimit();
+    if (Number.isNaN(limit)) {
+      $('save-result').textContent = '重さの上限には 0 より大きい数値を入れてください。';
+      $('save-result').classList.add('warn-text');
+      sizeValue.focus();
+      return;
+    }
+    let { type, ext } = outputFormat(sourceType);
+    // 重さを指定したときは、画質を調整できる形式で保存する（PNG は JPEG に）
+    if (limit && type === 'image/png') ({ type, ext } = { type: 'image/jpeg', ext: 'jpg' });
     let canvas = preview;
 
     // JPEGは透過非対応なので白背景で合成
@@ -455,15 +506,30 @@
       ctx.drawImage(preview, 0, 0);
     }
 
-    canvas.toBlob((blob) => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `${fileName}_${canvas.width}x${canvas.height}.${ext}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    }, type, JPEG_QUALITY);
+    const btn = $('btn-download');
+    const result = $('save-result');
+    btn.disabled = true;
+    result.classList.remove('warn-text');
+    if (limit) result.textContent = '重さを調整しています…';
+    const { blob, reached } = limit
+      ? await encodeWithin(canvas, type, limit)
+      : { blob: await encode(canvas, type, JPEG_QUALITY), reached: true };
+    btn.disabled = false;
+
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${fileName}_${canvas.width}x${canvas.height}.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+
+    if (reached) {
+      result.textContent = `保存しました（${formatBytes(blob.size)}）`;
+    } else {
+      result.textContent = `この幅・高さでは ${formatBytes(blob.size)} までしか小さくできませんでした。幅・高さを小さくすると軽くなります。`;
+      result.classList.add('warn-text');
+    }
   });
 
   $('btn-new').addEventListener('click', () => {

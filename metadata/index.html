@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>位置情報の削除</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-inner">
+      <a class="brand" href="../index.html">ファイル変換ツール</a>
+      <nav class="site-nav"></nav>
+    </div>
+  </header>
+  <script src="../nav.js"></script>
+
+  <div class="page-head">
+    <h1>位置情報の削除</h1>
+    <p class="sub">写真に埋め込まれた撮影場所などを削除します。画質は変わりません。ファイルは外部に送信されません</p>
+  </div>
+
+  <div class="layout" id="layout">
+    <main class="main-col">
+      <!-- 最初の画面：ドロップのみ -->
+      <section class="card drop-card" id="drop-card">
+        <label id="drop" class="drop-zone" for="file-input">
+          <input type="file" id="file-input" accept="image/jpeg,image/png,.jpg,.jpeg,.png" multiple hidden>
+          <div class="drop-inner">
+            <div class="drop-icon">⬆</div>
+            <p><strong>ここに写真をドラッグ＆ドロップ</strong></p>
+            <p class="muted">または クリックしてファイルを選択（複数可・JPEG / PNG）</p>
+          </div>
+        </label>
+      </section>
+
+      <!-- 読み込み後：左にファイル一覧 -->
+      <section class="card hidden" id="list-card">
+        <div class="pane-head">
+          <h2>ファイル一覧</h2>
+          <span id="summary" class="muted small"></span>
+        </div>
+        <div class="page-tools">
+          <button type="button" id="add-files" class="btn secondary">ファイルを追加</button>
+          <button type="button" id="clear" class="btn secondary">すべて削除</button>
+        </div>
+        <div id="grid" class="meta-list"></div>
+      </section>
+    </main>
+
+    <aside class="side card hidden" id="side">
+      <div class="side-head">
+        <h2>削除する情報</h2>
+      </div>
+
+      <div class="file-tabs" role="radiogroup" aria-label="削除する情報">
+        <label><input type="radio" name="mode" value="gps" checked>位置情報だけ</label>
+        <label><input type="radio" name="mode" value="all">すべて</label>
+      </div>
+
+      <div class="side-body file-panel">
+        <div class="tab-content">
+          <p id="mode-note" class="muted small opt-note"></p>
+        </div>
+        <p class="muted small opt-note">画像そのものは作り直さないので、画質は一切変わりません。対応形式は JPEG と PNG です（HEIC などは「形式変換」で JPEG にすると、付加情報のない画像になります）。</p>
+      </div>
+
+      <div class="side-actions">
+        <p id="status" class="muted small center"></p>
+        <button type="button" id="download" class="btn primary block" disabled>ダウンロード</button>
+      </div>
+    </aside>
+  </div>
+
+  <script src="../vendor/jszip.min.js"></script>
+  <script src="../segmented.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

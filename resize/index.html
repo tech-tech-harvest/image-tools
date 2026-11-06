@@ -10,14 +10,10 @@
   <header class="site-header">
     <div class="site-inner">
       <a class="brand" href="../index.html">ファイル変換ツール</a>
-      <nav class="site-nav">
-        <a href="../index.html">形式変換</a>
-        <a href="index.html" class="active" aria-current="page">トリミング＆リサイズ</a>
-        <a href="../mosaic/index.html">モザイク</a>
-        <a href="../bg-remove/index.html">背景削除</a>
-      </nav>
+      <nav class="site-nav"></nav>
     </div>
   </header>
+  <script src="../nav.js"></script>
 
   <div class="page-head">
     <h1>写真トリミング＆リサイズ</h1>
@@ -117,9 +113,33 @@
 
           <p id="free-note" class="muted small hidden">切り取り範囲をマウスで自由に指定します。出力は切り取った範囲の元の解像度のまま保存されます。</p>
         </div>
+
+        <!-- ピクセル指定のときは幅・高さで決まるので出さない -->
+        <div class="opt" id="size-opt">
+          <div class="opt-title">ファイルの重さ</div>
+          <div class="grid2">
+            <select id="size-mode" class="dd">
+              <option value="keep" selected>そのまま</option>
+              <option value="limit">上限を指定</option>
+            </select>
+          </div>
+          <!-- 「上限を指定」のときだけ出す：数値＋単位 -->
+          <div id="size-input" class="size-input hidden">
+            <input type="number" id="size-value" min="0" step="any" value="500" inputmode="decimal" aria-label="重さの上限">
+            <select id="size-unit" class="dd" aria-label="単位">
+              <option value="1">B</option>
+              <option value="1000" selected>KB</option>
+              <option value="1000000">MB</option>
+              <option value="1000000000">GB</option>
+            </select>
+            <span>以下</span>
+          </div>
+          <p class="muted small opt-note size-note">上限を指定すると、その重さ以下になるよう画質を自動で下げます（PNG の画像は JPEG で保存）。</p>
+        </div>
       </div>
 
       <div class="side-actions">
+        <p id="save-result" class="muted small center"></p>
         <button type="button" id="btn-download" class="btn primary block">ダウンロード</button>
         <button type="button" id="btn-new" class="btn secondary block">別の写真を選ぶ</button>
       </div>
