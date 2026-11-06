@@ -83,6 +83,7 @@
       stepSettings.classList.remove('hidden');
       document.body.classList.add('has-side');
       setView('edit');
+      applyOriginalRatio(); // 「元の写真と同じ」なら、新しい写真の比率にする
       resetCrop();
       window.scrollTo(0, 0);
     };
@@ -115,6 +116,10 @@
     if (getMode() === 'pixel') {
       w = parseFloat(outW.value);
       h = parseFloat(outH.value);
+    } else if (followOriginal && img.naturalWidth) {
+      // 「元の写真と同じ」は表示用に短い比へ丸めているので、計算には写真の正確な比を使う
+      w = img.naturalWidth;
+      h = img.naturalHeight;
     } else {
       w = parseFloat(ratioW.value);
       h = parseFloat(ratioH.value);
@@ -148,6 +153,132 @@
     })
   );
   [outW, outH, ratioW, ratioH].forEach((el) => el.addEventListener('input', resetCrop));
+
+  // ---- ピクセル指定：よく使うサイズ・入れ替え・補足 ----
+  const sizePreset = $('size-preset');
+  const setPixels = (w, h) => {
+    outW.value = w;
+    outH.value = h;
+    resetCrop();
+    updatePixelUI();
+  };
+  sizePreset.addEventListener('change', () => {
+    if (sizePreset.value === 'custom') {
+      outW.focus();
+      return;
+    }
+    const [w, h] = sizePreset.value.split('x').map(Number);
+    setPixels(w, h);
+  });
+  $('swap-wh').addEventListener('click', () => setPixels(outH.value, outW.value));
+  [outW, outH].forEach((el) => el.addEventListener('input', updatePixelUI));
+
+  const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+
+  // ---- 縦横比：よく使う比率・入れ替え・補足 ----
+  const ratioPreset = $('ratio-preset');
+  let followOriginal = true; // 「元の写真と同じ」を選んでいる間は、写真を変えても比率を合わせ直す
+
+  // 大きさを、一般的な短い整数の比にする（ぴったりにならなければ誤差 1% 以内の近い比）
+  function simpleRatio(w, h) {
+    const g = gcd(w, h);
+    if (w / g <= 32 && h / g <= 32) return [w / g, h / g];
+    for (let b = 1; b <= 20; b++) {
+      const a = Math.round((w / h) * b);
+      if (a && Math.abs(a / b - w / h) / (w / h) < 0.01) return [a, b];
+    }
+    return [Number((w / h).toFixed(2)), 1];
+  }
+
+  const setRatio = (w, h) => {
+    ratioW.value = w;
+    ratioH.value = h;
+    resetCrop();
+    updateRatioUI();
+  };
+  function applyOriginalRatio() {
+    if (!followOriginal || !img.naturalWidth) return;
+    const [w, h] = simpleRatio(img.naturalWidth, img.naturalHeight);
+    ratioW.value = w;
+    ratioH.value = h;
+  }
+  ratioPreset.addEventListener('change', () => {
+    followOriginal = ratioPreset.value === 'original';
+    if (ratioPreset.value === 'custom') {
+      ratioW.focus();
+      return;
+    }
+    if (followOriginal) {
+      applyOriginalRatio();
+      resetCrop();
+      updateRatioUI();
+      return;
+    }
+    const [w, h] = ratioPreset.value.split(':').map(Number);
+    setRatio(w, h);
+  });
+  $('swap-ratio').addEventListener('click', () => {
+    followOriginal = false;
+    setRatio(ratioH.value, ratioW.value);
+  });
+  [ratioW, ratioH].forEach((el) => el.addEventListener('input', () => {
+    followOriginal = false;
+    updateRatioUI();
+  }));
+
+  function updateRatioUI() {
+    const w = parseFloat(ratioW.value);
+    const h = parseFloat(ratioH.value);
+    ratioW.classList.toggle('invalid', !(w > 0));
+    ratioH.classList.toggle('invalid', !(h > 0));
+    if (!followOriginal) {
+      const match = [...ratioPreset.options].find((o) => o.value === `${w}:${h}`);
+      ratioPreset.value = match ? match.value : 'custom';
+    }
+    const info = $('ratio-info');
+    info.classList.toggle('warn-text', !(w > 0 && h > 0));
+    if (!(w > 0 && h > 0)) {
+      info.textContent = '横と縦には 0 より大きい数値を入れてください。';
+      return;
+    }
+    info.textContent = crop.w
+      ? `出力は切り取った範囲の元の解像度のまま（いまは ${Math.round(crop.w)}×${Math.round(crop.h)} px）`
+      : '出力は切り取った範囲の元の解像度のまま保存されます。';
+  }
+  // 入力に合わせて、よく使うサイズの表示・縦横比・拡大か縮小かを更新する
+  function updatePixelUI() {
+    const w = Math.round(parseFloat(outW.value));
+    const h = Math.round(parseFloat(outH.value));
+    const ok = w > 0 && h > 0;
+    outW.classList.toggle('invalid', !(w > 0));
+    outH.classList.toggle('invalid', !(h > 0));
+    const match = [...sizePreset.options].find((o) => o.value === `${w}x${h}`);
+    sizePreset.value = match ? match.value : 'custom';
+
+    const info = $('px-info');
+    info.classList.remove('warn-text');
+    if (!ok) {
+      info.textContent = '幅と高さには 1 以上の数値を入れてください。';
+      info.classList.add('warn-text');
+      return;
+    }
+    const g = gcd(w, h);
+    const ratio = w / g <= 32 && h / g <= 32 ? `${w / g}:${h / g}` : `約 ${(w / h).toFixed(2)}:1`;
+    let size = '';
+    if (crop.w) {
+      const cw = Math.round(crop.w);
+      const ch = Math.round(crop.h);
+      if (w > cw * 1.01) {
+        size = `切り取った範囲（${cw}×${ch}）を拡大して保存。画質が粗くなります`;
+        info.classList.add('warn-text');
+      } else if (w < cw * 0.99) {
+        size = `切り取った範囲（${cw}×${ch}）を縮小して保存`;
+      } else {
+        size = '切り取った範囲をそのままの大きさで保存';
+      }
+    }
+    info.textContent = `縦横比 ${ratio}${size ? ' ・ ' + size : ''}`;
+  }
   // 初期選択（自由）の表示を反映
   document.querySelector('input[name="mode"]:checked').dispatchEvent(new Event('change'));
 
@@ -193,6 +324,9 @@
     cropInfo.textContent =
       `切り取り範囲: ${Math.round(crop.w)} × ${Math.round(crop.h)} px` +
       `（位置 ${Math.round(crop.x)}, ${Math.round(crop.y)}）`;
+    if (getMode() === 'pixel') updatePixelUI();
+    if (getMode() === 'ratio') updateRatioUI();
+    updateSummary();
     schedulePreview();
   }
 
@@ -480,21 +614,18 @@
     return { blob: best, reached: true };
   }
 
-  $('btn-download').addEventListener('click', async () => {
+  // ---- 保存される画像を作る（要約の計測とダウンロードで共通） ----
+  const FORMAT_LABEL = { 'image/jpeg': 'JPEG', 'image/png': 'PNG', 'image/webp': 'WebP' };
+  // ピクセル指定のときは重さを指定しない（幅・高さで決まる）
+  const currentLimit = () => (getMode() === 'pixel' ? 0 : readLimit());
+
+  async function makeOutput() {
     drawOutput();
-    // ピクセル指定のときは重さを指定しない（幅・高さで決まる）
-    const limit = getMode() === 'pixel' ? 0 : readLimit();
-    if (Number.isNaN(limit)) {
-      $('save-result').textContent = '重さの上限には 0 より大きい数値を入れてください。';
-      $('save-result').classList.add('warn-text');
-      sizeValue.focus();
-      return;
-    }
+    const limit = currentLimit();
     let { type, ext } = outputFormat(sourceType);
     // 重さを指定したときは、画質を調整できる形式で保存する（PNG は JPEG に）
     if (limit && type === 'image/png') ({ type, ext } = { type: 'image/jpeg', ext: 'jpg' });
     let canvas = preview;
-
     // JPEGは透過非対応なので白背景で合成
     if (type === 'image/jpeg') {
       canvas = document.createElement('canvas');
@@ -505,20 +636,87 @@
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(preview, 0, 0);
     }
-
-    const btn = $('btn-download');
-    const result = $('save-result');
-    btn.disabled = true;
-    result.classList.remove('warn-text');
-    if (limit) result.textContent = '重さを調整しています…';
     const { blob, reached } = limit
       ? await encodeWithin(canvas, type, limit)
       : { blob: await encode(canvas, type, JPEG_QUALITY), reached: true };
+    return { blob, reached, type, ext, w: canvas.width, h: canvas.height };
+  }
+
+  // ---- 保存される画像の要約（大きさ・縦横比・ファイルの重さ） ----
+  // 大きさと縦横比はすぐ出す。重さは操作が止まってから実際に作って測り、ダウンロードにも使う
+  let estimate = null; // { key, blob, reached, type, ext, w, h }
+  let estimateTimer = 0;
+  const outputKey = () => {
+    const size = getOutputSize();
+    return JSON.stringify([img.src, Math.round(crop.x), Math.round(crop.y), Math.round(crop.w), Math.round(crop.h),
+      size && size.w, size && size.h, currentLimit()]);
+  };
+
+  function updateSummary() {
+    const size = getOutputSize();
+    if (!size || !crop.w) {
+      $('sum-dim').textContent = $('sum-ratio').textContent = $('sum-size').textContent = '—';
+      return;
+    }
+    $('sum-dim').textContent = `${size.w}×${size.h} px`;
+    const [a, b] = simpleRatio(size.w, size.h);
+    $('sum-ratio').textContent = `${Math.abs(a / b - size.w / size.h) > 1e-9 ? '約 ' : ''}${a}:${b}`;
+
+    clearTimeout(estimateTimer);
+    const key = outputKey();
+    if (estimate && estimate.key === key) {
+      showEstimate();
+      return;
+    }
+    const sizeEl = $('sum-size');
+    sizeEl.classList.remove('warn-text');
+    if (Number.isNaN(currentLimit())) {
+      sizeEl.textContent = '重さの指定を確認';
+      return;
+    }
+    sizeEl.textContent = '計算中…';
+    estimateTimer = setTimeout(async () => {
+      const out = await makeOutput();
+      if (outputKey() !== key) return; // 計算中に設定が変わった
+      estimate = { key, ...out };
+      showEstimate();
+    }, 500);
+  }
+
+  function showEstimate() {
+    const el = $('sum-size');
+    el.textContent = `約 ${formatBytes(estimate.blob.size)}`;
+    $('sum-format').textContent = `ファイル（${FORMAT_LABEL[estimate.type]}）`;
+    el.classList.toggle('warn-text', !estimate.reached);
+    el.title = estimate.reached ? '' : '指定した重さまで小さくできません';
+  }
+  [sizeMode, sizeValue, sizeUnit].forEach((el) => el.addEventListener('input', updateSummary));
+  sizeMode.addEventListener('change', updateSummary);
+
+  $('btn-download').addEventListener('click', async () => {
+    const result = $('save-result');
+    if (Number.isNaN(currentLimit())) {
+      result.textContent = '重さの上限には 0 より大きい数値を入れてください。';
+      result.classList.add('warn-text');
+      sizeValue.focus();
+      return;
+    }
+    const btn = $('btn-download');
+    btn.disabled = true;
+    result.classList.remove('warn-text');
+    const key = outputKey();
+    // 要約で計算済みならそれを使う
+    if (!estimate || estimate.key !== key) {
+      if (currentLimit()) result.textContent = '重さを調整しています…';
+      estimate = { key, ...(await makeOutput()) };
+      showEstimate();
+    }
     btn.disabled = false;
+    const { blob, reached, ext, w, h } = estimate;
 
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `${fileName}_${canvas.width}x${canvas.height}.${ext}`;
+    a.download = `${fileName}_${w}x${h}.${ext}`;
     document.body.appendChild(a);
     a.click();
     a.remove();

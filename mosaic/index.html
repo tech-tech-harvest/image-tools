@@ -38,9 +38,14 @@
       <section class="card hidden" id="workspace">
         <div class="pane-head">
           <h2 id="file-info"></h2>
-          <div class="info-wrap">
-            <button type="button" class="info-btn" aria-label="操作のヒント" aria-expanded="false">i</button>
-            <p id="tool-hint" class="info-pop" role="tooltip"></p>
+          <div class="pane-head-right">
+            <button type="button" id="btn-new" class="btn secondary with-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>別の写真を選ぶ
+            </button>
+            <div class="info-wrap">
+              <button type="button" class="info-btn" aria-label="操作のヒント" aria-expanded="false">i</button>
+              <p id="tool-hint" class="info-pop" role="tooltip"></p>
+            </div>
           </div>
         </div>
         <div class="edit-bar">
@@ -137,7 +142,6 @@
 
       <div class="side-actions">
         <button type="button" id="btn-download" class="btn primary block">ダウンロード</button>
-        <button type="button" id="btn-new" class="btn secondary block">別の写真を選ぶ</button>
       </div>
     </aside>
   </div>

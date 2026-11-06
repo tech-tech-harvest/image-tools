@@ -38,9 +38,14 @@
       <section class="card hidden" id="workspace">
         <div class="pane-head">
           <h2 id="file-info"></h2>
-          <div class="info-wrap">
-            <button type="button" class="info-btn" aria-label="操作のヒント" aria-expanded="false">i</button>
-            <p id="crop-hint" class="info-pop" role="tooltip">枠をドラッグで移動、四隅をドラッグで拡大・縮小（比率は固定）</p>
+          <div class="pane-head-right">
+            <button type="button" id="btn-new" class="btn secondary with-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>別の写真を選ぶ
+            </button>
+            <div class="info-wrap">
+              <button type="button" class="info-btn" aria-label="操作のヒント" aria-expanded="false">i</button>
+              <p id="crop-hint" class="info-pop" role="tooltip">枠をドラッグで移動、四隅をドラッグで拡大・縮小（比率は固定）</p>
+            </div>
           </div>
         </div>
         <div class="edit-bar">
@@ -99,16 +104,67 @@
 
       <div class="side-body file-panel">
         <div class="tab-content">
-          <div id="pixel-fields" class="fields">
-            <label>幅 <input type="number" id="out-w" min="1" value="260"> px</label>
-            <label>高さ <input type="number" id="out-h" min="1" value="307"> px</label>
+          <div id="pixel-fields" class="px-panel">
+            <label class="px-label" for="size-preset">よく使うサイズ</label>
+            <select id="size-preset" class="dd">
+              <option value="custom">自分で入力</option>
+              <option value="1080x1080" selected>Instagram 正方形（1080×1080）</option>
+              <option value="1080x1350">Instagram 縦長（1080×1350）</option>
+              <option value="1080x1920">ストーリー・縦動画（1080×1920）</option>
+              <option value="1280x720">YouTube サムネイル（1280×720）</option>
+              <option value="1500x500">X ヘッダー（1500×500）</option>
+              <option value="400x400">アイコン（400×400）</option>
+              <option value="1920x1080">フルHD（1920×1080）</option>
+              <option value="354x472">証明写真 3×4cm（354×472）</option>
+            </select>
+
+            <div class="px-fields">
+              <label class="px-field">
+                <span class="px-label">幅</span>
+                <span class="px-input"><input type="number" id="out-w" min="1" step="1" value="1080" inputmode="numeric"><span>px</span></span>
+              </label>
+              <button type="button" id="swap-wh" class="icon-btn px-swap" title="幅と高さを入れ替える（縦長 ⇄ 横長）" aria-label="幅と高さを入れ替える">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h12l-3-3"/><path d="M17 17H5l3 3"/></svg>
+              </button>
+              <label class="px-field">
+                <span class="px-label">高さ</span>
+                <span class="px-input"><input type="number" id="out-h" min="1" step="1" value="1080" inputmode="numeric"><span>px</span></span>
+              </label>
+            </div>
+
+            <p id="px-info" class="px-info"></p>
           </div>
 
-          <div id="ratio-fields" class="fields hidden">
-            <label>横 <input type="number" id="ratio-w" min="0.01" step="any" value="260"></label>
-            <span class="x">:</span>
-            <label>縦 <input type="number" id="ratio-h" min="0.01" step="any" value="307"></label>
-            <p class="muted small">出力は切り取った範囲の元の解像度のまま保存されます。</p>
+          <div id="ratio-fields" class="px-panel hidden">
+            <label class="px-label" for="ratio-preset">よく使う比率</label>
+            <select id="ratio-preset" class="dd">
+              <option value="original" selected>元の写真と同じ</option>
+              <option value="1:1">1:1 正方形</option>
+              <option value="4:3">4:3 スマホの写真（横）</option>
+              <option value="3:4">3:4 スマホの写真（縦）</option>
+              <option value="3:2">3:2 カメラの写真（横）</option>
+              <option value="2:3">2:3 カメラの写真（縦）</option>
+              <option value="16:9">16:9 ワイド・動画</option>
+              <option value="9:16">9:16 縦動画・ストーリー</option>
+              <option value="4:5">4:5 Instagram 縦長</option>
+              <option value="custom">自分で入力</option>
+            </select>
+
+            <div class="px-fields">
+              <label class="px-field">
+                <span class="px-label">横</span>
+                <span class="px-input no-unit"><input type="number" id="ratio-w" min="0.01" step="any" value="4" inputmode="decimal"></span>
+              </label>
+              <button type="button" id="swap-ratio" class="icon-btn px-swap" title="横と縦を入れ替える（縦長 ⇄ 横長）" aria-label="横と縦を入れ替える">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h12l-3-3"/><path d="M17 17H5l3 3"/></svg>
+              </button>
+              <label class="px-field">
+                <span class="px-label">縦</span>
+                <span class="px-input no-unit"><input type="number" id="ratio-h" min="0.01" step="any" value="3" inputmode="decimal"></span>
+              </label>
+            </div>
+
+            <p id="ratio-info" class="px-info"></p>
           </div>
 
           <p id="free-note" class="muted small hidden">切り取り範囲をマウスで自由に指定します。出力は切り取った範囲の元の解像度のまま保存されます。</p>
@@ -139,9 +195,14 @@
       </div>
 
       <div class="side-actions">
+        <!-- 保存される画像の要約 -->
+        <div class="out-summary" aria-live="polite">
+          <div><span>大きさ</span><strong id="sum-dim">—</strong></div>
+          <div><span>縦横比</span><strong id="sum-ratio">—</strong></div>
+          <div><span id="sum-format">ファイル</span><strong id="sum-size">—</strong></div>
+        </div>
         <p id="save-result" class="muted small center"></p>
         <button type="button" id="btn-download" class="btn primary block">ダウンロード</button>
-        <button type="button" id="btn-new" class="btn secondary block">別の写真を選ぶ</button>
       </div>
     </aside>
   </div>

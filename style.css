@@ -143,6 +143,7 @@ body.has-side .page-head { display: none; }
   margin-bottom: 12px;
 }
 .card .pane-head h2 { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.pane-head-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 
 /* 編集／プレビュー切り替えタブ */
 .view-switch {
@@ -285,7 +286,8 @@ body.has-side .page-head { display: none; }
   margin-bottom: 16px;
   border-bottom: 1px dashed var(--border);
 }
-.tab-content:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+/* 後ろに表示中の項目がなければ区切り線を出さない */
+.tab-content:not(:has(~ :not(.hidden))) { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
 .tab-content .fields:not(.hidden) { margin-bottom: 0; }
 .tab-content .opt:last-child { margin-bottom: 0; }
 .tab-content p { margin: 0; }
@@ -1050,3 +1052,50 @@ canvas.checker {
 }
 .size-input input.invalid { border-color: var(--error); background: #fef2f2; }
 .size-input .dd { width: 92px; }
+
+/* ピクセル指定の欄 */
+.px-panel { display: grid; gap: 8px; }
+.px-label { font-size: .8rem; font-weight: bold; color: var(--muted); }
+.px-fields { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: end; gap: 8px; margin-top: 6px; }
+.px-field { display: grid; gap: 4px; }
+.px-input { position: relative; display: block; }
+.px-input input {
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 36px 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 1.15rem;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+}
+.px-input input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37, 99, 235, .15); }
+.px-input input.invalid { border-color: var(--error); background: #fef2f2; }
+.px-input span {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: .85rem;
+  pointer-events: none;
+}
+.px-swap { margin-bottom: 4px; }
+.px-input.no-unit input { padding-right: 12px; text-align: center; }
+.px-info { margin: 2px 0 0; font-size: .8rem; color: var(--muted); }
+
+/* 保存される画像の要約 */
+.out-summary {
+  display: grid;
+  grid-template-columns: 1.25fr .75fr 1.3fr;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f3f4f6;
+}
+.out-summary div { display: grid; gap: 1px; min-width: 0; }
+.out-summary span { font-size: .7rem; color: var(--muted); }
+.out-summary strong { font-size: .85rem; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side-actions .out-summary + p:empty { display: none; }
