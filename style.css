@@ -1101,3 +1101,107 @@ canvas.checker {
 .out-summary span { font-size: .7rem; color: var(--muted); }
 .out-summary strong { font-size: .85rem; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .side-actions .out-summary + p:empty { display: none; }
+
+/* ================= 画像編集 ================= */
+/* アイコン付きの道具タブ（5つ） */
+.tool-tabs label {
+  min-height: 56px;
+  padding: 6px 2px;
+  gap: 2px;
+  font-size: .75rem;
+  grid-template-rows: auto auto;
+}
+.tool-tabs label:has(input:checked) { min-height: 62px; }
+.tool-tabs svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.tool-panel .adj { margin-bottom: 14px; }
+.tool-panel .adj input[type="range"] { width: 100%; height: 26px; }
+.tool-panel .opt-title { margin-top: 4px; }
+
+/* フィルタの見本 */
+.filter-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+.filter-item {
+  display: grid;
+  gap: 4px;
+  padding: 4px;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: #fff;
+  font-size: .75rem;
+  cursor: pointer;
+}
+.filter-item:hover { background: #f3f4f6; }
+.filter-item.active { border-color: var(--accent); color: var(--accent); font-weight: bold; }
+.filter-thumb {
+  display: block;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  background: #e5e7eb center / cover no-repeat;
+}
+
+/* 色の見本 */
+.color-swatches { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px var(--border);
+  cursor: pointer;
+  padding: 0;
+}
+.swatch.active { box-shadow: 0 0 0 2px var(--accent); }
+.swatch-other {
+  --picked: transparent;
+  position: relative;
+  background: conic-gradient(#ef4444, #facc15, #22c55e, #3b82f6, #a855f7, #ef4444);
+}
+.swatch-other.active { background: var(--picked); }
+.swatch-other input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+/* 文字 */
+.text-input {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font: inherit;
+  resize: vertical;
+}
+.text-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37, 99, 235, .15); }
+#panel-text #text-size { width: 100%; height: 26px; margin-bottom: 8px; }
+#panel-text .action-btn { margin: 0 0 12px; }
+.toggle-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.toggle-chip {
+  position: relative;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  font-size: .85rem;
+  cursor: pointer;
+}
+.toggle-chip input { position: absolute; opacity: 0; pointer-events: none; }
+.toggle-chip:has(input:checked) { border-color: var(--accent); background: #eff6ff; color: var(--accent); font-weight: bold; }
+.toggle-chip:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ペン・回転 */
+#panel-pen #pen-size { width: 100%; height: 26px; }
+.pen-clear { margin-top: 12px; }
+.icon-row { display: flex; gap: 8px; margin-bottom: 14px; }
+#panel-crop .opt-note { margin: 0 0 10px; }
+/* 見出しの右の数値入力（例：文字の大きさ px） */
+.num-field { display: inline-flex; align-items: center; gap: 4px; }
+.num-field input {
+  width: 72px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+  font-weight: bold;
+  color: var(--text);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.num-field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37, 99, 235, .15); }
+.num-field input.invalid { border-color: var(--error); background: #fef2f2; }
