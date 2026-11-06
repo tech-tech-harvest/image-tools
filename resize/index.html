@@ -168,6 +168,25 @@
           <p id="free-note" class="muted small hidden">切り取り範囲をマウスで自由に指定します。出力は切り取った範囲の元の解像度のまま保存されます。</p>
         </div>
 
+        <div class="opt" id="shape-opt">
+          <div class="opt-title">切り抜く形</div>
+          <div class="shape-choices" role="radiogroup" aria-label="切り抜く形">
+            <label class="shape-choice"><input type="radio" name="shape" value="rect" checked><span class="shape-ico rect"></span>四角</label>
+            <label class="shape-choice"><input type="radio" name="shape" value="round"><span class="shape-ico round"></span>角丸</label>
+            <label class="shape-choice"><input type="radio" name="shape" value="circle"><span class="shape-ico circle"></span>円</label>
+          </div>
+          <div id="radius-row" class="hidden">
+            <div class="opt-title">角の丸み <span class="opt-value"><span id="radius-val">20</span>%</span></div>
+            <input type="range" id="radius" min="5" max="50" step="1" value="20">
+          </div>
+          <div id="shape-note" class="shape-note hidden">
+            <p class="muted small">形の外側は透明になります（PNG で保存）。</p>
+            <button type="button" id="make-circle" class="btn secondary block with-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg>正円にする（縦横比 1:1）
+            </button>
+          </div>
+        </div>
+
         <!-- ピクセル指定のときは幅・高さで決まるので出さない -->
         <div class="opt" id="size-opt">
           <div class="opt-title">ファイルの重さ</div>
@@ -188,7 +207,7 @@
             </select>
             <span>以下</span>
           </div>
-          <p class="muted small opt-note size-note">上限を指定すると、その重さ以下になるよう画質を自動で下げます（PNG の画像は JPEG で保存）。</p>
+          <p class="muted small opt-note size-note">上限を指定すると、その重さ以下になるよう画質を自動で下げます（PNG の画像は JPEG、角丸・円のときは WebP で保存）。</p>
         </div>
       </div>
 

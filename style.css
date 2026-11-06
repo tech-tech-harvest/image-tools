@@ -1205,3 +1205,28 @@ canvas.checker {
 }
 .num-field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37, 99, 235, .15); }
 .num-field input.invalid { border-color: var(--error); background: #fef2f2; }
+
+/* 切り抜く形 */
+.shape-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.shape-choice {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 10px 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  font-size: .85rem;
+  cursor: pointer;
+}
+.shape-choice:hover { background: #f3f4f6; }
+.shape-choice input { position: absolute; opacity: 0; pointer-events: none; }
+.shape-choice:has(input:checked) { border-color: var(--accent); background: #eff6ff; color: var(--accent); font-weight: bold; }
+.shape-choice:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.shape-ico { width: 28px; height: 28px; border: 2px solid currentColor; }
+.shape-ico.round { border-radius: 8px; }
+.shape-ico.circle { border-radius: 50%; }
+#radius-row { margin-top: 12px; }
+#radius-row input[type="range"] { width: 100%; height: 26px; }
+.shape-note { margin-top: 10px; }
+.shape-note p { margin: 0 0 8px; }

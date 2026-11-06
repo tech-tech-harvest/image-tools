@@ -295,6 +295,35 @@
     return { type: 'image/png', ext: 'png' };
   }
 
+  // ================= 切り抜く形（四角・角丸・円） =================
+  const getShape = () => document.querySelector('input[name="shape"]:checked').value;
+  const radiusInput = $('radius');
+
+  // 幅 w・高さ h の枠に、形の輪郭を描く（円は枠に内接する楕円。正方形なら正円）
+  function shapePath(ctx, w, h) {
+    ctx.beginPath();
+    if (getShape() === 'circle') ctx.ellipse(w / 2, h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+    else ctx.roundRect(0, 0, w, h, (Math.min(w, h) * Number(radiusInput.value)) / 100);
+  }
+
+  function onShapeChange() {
+    const shape = getShape();
+    $('radius-row').classList.toggle('hidden', shape !== 'round');
+    $('shape-note').classList.toggle('hidden', shape === 'rect');
+    $('make-circle').classList.toggle('hidden', shape !== 'circle');
+    $('radius-val').textContent = radiusInput.value;
+    render();
+  }
+  document.querySelectorAll('input[name="shape"]').forEach((el) => el.addEventListener('change', onShapeChange));
+  radiusInput.addEventListener('input', onShapeChange);
+
+  // 正円にする：縦横比のタブで 1:1 を選ぶ
+  $('make-circle').addEventListener('click', () => {
+    document.querySelector('input[name="mode"][value="ratio"]').click();
+    ratioPreset.value = '1:1';
+    ratioPreset.dispatchEvent(new Event('change'));
+  });
+
   // ================= 切り取り枠 =================
   const scale = () => img.clientWidth / img.naturalWidth; // 元画像px → 表示px
 
@@ -321,6 +350,9 @@
     cropBox.style.top = `${crop.y * s}px`;
     cropBox.style.width = `${crop.w * s}px`;
     cropBox.style.height = `${crop.h * s}px`;
+    const shape = getShape();
+    cropBox.style.borderRadius = shape === 'circle' ? '50%'
+      : shape === 'round' ? `${(Math.min(crop.w, crop.h) * s * Number(radiusInput.value)) / 100}px` : '';
     cropInfo.textContent =
       `切り取り範囲: ${Math.round(crop.w)} × ${Math.round(crop.h)} px` +
       `（位置 ${Math.round(crop.x)}, ${Math.round(crop.y)}）`;
@@ -571,6 +603,13 @@
     ctx.imageSmoothingQuality = 'high';
     ctx.clearRect(0, 0, size.w, size.h);
     ctx.drawImage(src, sx, sy, sw, sh, 0, 0, size.w, size.h);
+    // 角丸・円のときは、形の外側を透明にする
+    if (getShape() !== 'rect') {
+      ctx.globalCompositeOperation = 'destination-in';
+      shapePath(ctx, size.w, size.h);
+      ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+    }
 
     outputInfo.textContent = `出力サイズ: ${size.w} × ${size.h} px`;
   }
@@ -623,8 +662,13 @@
     drawOutput();
     const limit = currentLimit();
     let { type, ext } = outputFormat(sourceType);
-    // 重さを指定したときは、画質を調整できる形式で保存する（PNG は JPEG に）
-    if (limit && type === 'image/png') ({ type, ext } = { type: 'image/jpeg', ext: 'jpg' });
+    if (getShape() !== 'rect') {
+      // 形の外側を透明にするので、透明を扱える形式で保存する（重さを指定したときは画質も調整できる WebP）
+      ({ type, ext } = limit && canWebp() ? { type: 'image/webp', ext: 'webp' } : { type: 'image/png', ext: 'png' });
+    } else if (limit && type === 'image/png') {
+      // 重さを指定したときは、画質を調整できる形式で保存する（PNG は JPEG に）
+      ({ type, ext } = { type: 'image/jpeg', ext: 'jpg' });
+    }
     let canvas = preview;
     // JPEGは透過非対応なので白背景で合成
     if (type === 'image/jpeg') {
@@ -649,7 +693,7 @@
   const outputKey = () => {
     const size = getOutputSize();
     return JSON.stringify([img.src, Math.round(crop.x), Math.round(crop.y), Math.round(crop.w), Math.round(crop.h),
-      size && size.w, size && size.h, currentLimit()]);
+      size && size.w, size && size.h, currentLimit(), getShape(), radiusInput.value]);
   };
 
   function updateSummary() {
