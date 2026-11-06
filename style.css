@@ -41,6 +41,7 @@ body {
   gap: 8px 16px;
 }
 .brand {
+  justify-self: start; /* 押せる範囲を文字の幅だけにする（列いっぱいに広がらないように） */
   font-weight: bold;
   font-size: 1.05rem;
   color: var(--text);
@@ -50,7 +51,7 @@ body {
 .site-nav {
   display: flex;
   flex-wrap: nowrap;
-  gap: 24px;
+  gap: 12px;
   white-space: nowrap;
 }
 .site-nav a {
