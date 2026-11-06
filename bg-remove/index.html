@@ -65,6 +65,10 @@
           </div>
         </div>
         <div class="crop-area">
+          <div id="guide" class="canvas-guide hidden" role="status">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11V5a2 2 0 0 1 4 0v5"/><path d="M13 10V8a2 2 0 0 1 4 0v4"/><path d="M17 11a2 2 0 0 1 4 0v3a7 7 0 0 1-7 7h-1a7 7 0 0 1-5.4-2.6L4.3 15a2 2 0 0 1 3-2.6L9 14"/></svg>
+            <span></span>
+          </div>
           <div id="stage" class="mosaic-stage">
             <canvas id="view" class="checker"></canvas>
           </div>
@@ -78,30 +82,49 @@
         <h2>背景削除</h2>
       </div>
 
-      <div class="side-body">
+      <div class="file-tabs" role="radiogroup" aria-label="消し方">
+        <label><input type="radio" name="method" value="ai" checked>AI</label>
+        <label><input type="radio" name="method" value="color">AI未使用</label>
+      </div>
+
+      <div class="side-body file-panel">
+        <div class="tab-content">
+          <div id="ai-fields">
+            <button type="button" id="btn-ai" class="btn secondary block with-icon ai-btn">
+              <span class="ai-fill" aria-hidden="true"></span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8Z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8Z"/></svg>
+              <span class="ai-label" aria-live="polite">AIで背景を自動削除</span>
+            </button>
+            <p class="muted small credit">AI: ormbg（Apache-2.0）／ Transformers.js（Apache-2.0）</p>
+            <p id="ai-status" class="muted small">初回のみAIモデル（約44〜88MB）をダウンロードします。画像は外部に送信されません。</p>
+          </div>
+
+          <div id="color-fields" class="hidden">
+            <button type="button" id="btn-edges" class="btn secondary block with-icon action-btn">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5a1 1 0 0 1 1-1h4"/><path d="M15 4h4a1 1 0 0 1 1 1v4"/><path d="M20 15v4a1 1 0 0 1-1 1h-4"/><path d="M9 20H5a1 1 0 0 1-1-1v-4"/><circle cx="12" cy="12" r="3"/></svg>
+              <span>ふちの色で背景を消す</span>
+            </button>
+            <p class="muted small opt-note">画像のふちの色を背景とみなして、つながっている近い色を消します。消し残りは、画像の背景をクリックしても消せます。白い壁などシンプルな背景向けです。</p>
+            <div class="opt-title">消す色の範囲</div>
+            <!-- 色の帯そのものがスライダー。つまみより左の色が消え、右は残る -->
+            <div class="tol-slider">
+              <div id="tol-strip" class="tol-strip"></div>
+              <div id="tol-erase" class="tol-erase"><span>消える</span></div>
+              <div id="tol-keep" class="tol-keep"><span>残る</span></div>
+              <input type="range" id="tolerance" min="1" max="60" step="1" value="20" aria-label="消す色の範囲">
+            </div>
+            <div class="range-ends"><span id="tol-seed-label">例：白をクリックした場合</span><span>かなり違う色</span></div>
+            <p class="muted small opt-note">色が見えている所までが消えます。消したあとにつまみを動かすと、消える範囲がその場で変わります。</p>
+          </div>
+        </div>
+
         <div class="opt">
-          <button type="button" id="btn-ai" class="btn secondary block with-icon ai-btn">
-            <span class="ai-fill" aria-hidden="true"></span>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8Z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8Z"/></svg>
-            <span class="ai-label" aria-live="polite">AIで背景を自動削除</span>
-          </button>
-          <p class="muted small credit">AI: ormbg（Apache-2.0）／ Transformers.js（Apache-2.0）</p>
-          <p id="ai-status" class="muted small">初回のみAIモデル（約44〜88MB）をダウンロードします。画像は外部に送信されません。</p>
-        </div>
-
-        <div class="opt divided">
-          <div class="opt-title">色で消す <span class="muted small">（AI未使用）</span></div>
-          <p class="muted small opt-note">画像の背景をクリックすると、つながっている色の近い範囲を消します。白い壁などシンプルな背景向けです。</p>
-          <div class="opt-title">許容範囲 <span class="opt-value"><span id="tolerance-val">20</span></span></div>
-          <input type="range" id="tolerance" min="1" max="60" step="1" value="20">
-        </div>
-
-        <div class="opt divided">
-          <div class="opt-title">背景</div>
+          <div class="opt-title">消した部分の色</div>
+          <p class="muted small opt-note">保存した画像で、消した部分をこの色にします（透明のままは PNG で保存）。</p>
           <select id="bg-mode" class="seg">
-            <option value="transparent">透明</option>
+            <option value="transparent">透明のまま</option>
             <option value="white">白</option>
-            <option value="color">色を指定</option>
+            <option value="color">色を選ぶ</option>
           </select>
           <label id="bg-color-row" class="color-row hidden">色 <input type="color" id="bg-color" value="#2563eb"></label>
         </div>

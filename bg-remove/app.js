@@ -50,6 +50,8 @@
   let redoStack = [];
   let action = null;
   let colors = null; // 色で消すときに調べる、マスクと同じ大きさの元画像の画素
+  let guideStep = 'start'; // 画像の上の手順案内（start → adjust → done）
+  let guideTimer = 0;
   let showOriginal = false;
   let frame = 0;
   let aiRunning = false;
@@ -132,6 +134,10 @@
     document.body.classList.add('has-side');
     window.scrollTo(0, 0);
 
+    session = null;
+    pickedColor = null;
+    renderSwatches();
+    guideStep = 'start';
     setView('edit');
     updateUI();
   }
@@ -200,6 +206,7 @@
     stage.classList.toggle('readonly', showOriginal);
     if (!src) return;
     redraw();
+    showGuide();
   }
   viewButtons.forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
 
@@ -455,10 +462,22 @@ self.onmessage = (e) => handle(e.data);`;
 
   // ================= 色で消す（AI未使用） =================
   // クリックした所とつながっていて、色が近い範囲を消す（単色に近い背景向け）
-  toolHint.textContent = 'AIを使うか、背景をクリックして色の近い範囲を消します。';
-  toleranceInput.addEventListener('input', () => {
-    $('tolerance-val').textContent = toleranceInput.value;
-  });
+
+  // ---- 「AI」「AI未使用」のタブ ----
+  const getMethod = () => document.querySelector('input[name="method"]:checked').value;
+  function updateMethodUI() {
+    const color = getMethod() === 'color';
+    $('ai-fields').classList.toggle('hidden', color);
+    $('color-fields').classList.toggle('hidden', !color);
+    // 画像のクリックで消すのは「AI未使用」のときだけ
+    stage.classList.toggle('pick-color', color);
+    toolHint.textContent = color
+      ? '「ふちの色で背景を消す」を押すと、画像のふちの色を背景とみなして消します。画像の背景をクリックしても消せます。'
+      : '「AIで背景を自動削除」を押すと、写っている主役以外を自動で消します。';
+    showGuide();
+  }
+  document.querySelectorAll('input[name="method"]').forEach((r) => r.addEventListener('change', updateMethodUI));
+  updateMethodUI();
 
   function pointerToMask(e) {
     const r = view.getBoundingClientRect();
@@ -468,21 +487,25 @@ self.onmessage = (e) => handle(e.data);`;
     };
   }
 
-  // 塗りつぶし（スキャンライン方式）で消す範囲を求め、その外接矩形を返す
-  function floodRegion(sx, sy, tolerance) {
-    const w = mask.width;
-    const h = mask.height;
-    const seed = (sy * w + sx) * 4;
-    const r0 = colors[seed], g0 = colors[seed + 1], b0 = colors[seed + 2], a0 = colors[seed + 3];
+  // 基準の色に近いかどうか（各色の差が許容範囲以内）
+  function nearTest(ref, tolerance) {
     const limit = tolerance * 2.55; // 0〜100 → 各色の差の上限
-    const near = (i) => {
+    const [r0, g0, b0, a0] = ref;
+    return (i) => {
       const k = i * 4;
       return Math.abs(colors[k] - r0) <= limit && Math.abs(colors[k + 1] - g0) <= limit &&
         Math.abs(colors[k + 2] - b0) <= limit && Math.abs(colors[k + 3] - a0) <= limit;
     };
+  }
+
+  // 塗りつぶし（スキャンライン方式）。始点（複数可）からつながっていて基準の色に近い範囲と、その外接矩形を返す
+  function floodRegion(seeds, near) {
+    const w = mask.width;
+    const h = mask.height;
     const hit = new Uint8Array(w * h);
-    const stack = [sx, sy];
-    let x1 = sx, y1 = sy, x2 = sx, y2 = sy;
+    const stack = [];
+    seeds.forEach(([x, y]) => stack.push(x, y));
+    let x1 = w, y1 = h, x2 = -1, y2 = -1;
     while (stack.length) {
       const y = stack.pop();
       let x = stack.pop();
@@ -509,15 +532,54 @@ self.onmessage = (e) => handle(e.data);`;
       if (y < y1) y1 = y;
       if (y > y2) y2 = y;
     }
-    return { hit, box: { x: x1, y: y1, w: x2 - x1 + 1, h: y2 - y1 + 1 } };
+    return x2 < 0 ? null : { hit, box: { x: x1, y: y1, w: x2 - x1 + 1, h: y2 - y1 + 1 } };
   }
 
-  stage.addEventListener('click', (e) => {
-    if (!src || showOriginal || aiRunning) return;
-    const p = pointerToMask(e);
-    const { hit, box } = floodRegion(p.x, p.y, Number(toleranceInput.value));
+  const colorAt = (x, y) => {
+    const i = (y * mask.width + x) * 4;
+    return [colors[i], colors[i + 1], colors[i + 2], colors[i + 3]];
+  };
 
-    beginAction();
+  // 画像のふち（四辺）の画素
+  function borderPixels() {
+    const w = mask.width;
+    const h = mask.height;
+    const out = [];
+    for (let x = 0; x < w; x++) out.push([x, 0], [x, h - 1]);
+    for (let y = 1; y < h - 1; y++) out.push([0, y], [w - 1, y]);
+    return out;
+  }
+
+  // ふちで一番多い色を背景の色とみなす（似た色をまとめて数え、その平均を使う）
+  function dominantBorderColor() {
+    const groups = new Map();
+    for (const [x, y] of borderPixels()) {
+      const c = colorAt(x, y);
+      const key = (c[0] >> 4) * 256 + (c[1] >> 4) * 16 + (c[2] >> 4);
+      const g = groups.get(key) || { n: 0, sum: [0, 0, 0, 0] };
+      g.n++;
+      c.forEach((v, k) => { g.sum[k] += v; });
+      groups.set(key, g);
+    }
+    let best = null;
+    groups.forEach((g) => { if (!best || g.n > best.n) best = g; });
+    return best.sum.map((v) => Math.round(v / best.n));
+  }
+
+  // 消し方：point はクリックした所から、edges は画像のふちの背景色の所から。
+  // 他の操作をするまでの一連の消し方（セッション）を覚えておき、つまみを動かしたら
+  // セッション開始時の状態に戻して、全部を新しい範囲で消し直す（右へ動かしたあと左へ戻すと、ちゃんと戻る）
+  let session = null; // { base, count（このセッションが積んだ履歴の数）, picks, lastEntry, collapsed }
+
+  // 1回分の消し方で消える範囲を求めてマスクから消す（履歴には積まない）。消えた範囲の外接矩形を返す
+  function applyPick(pick) {
+    const near = nearTest(pick.ref, Number(toleranceInput.value));
+    const seeds = pick.kind === 'point'
+      ? [[pick.p.x, pick.p.y]]
+      : borderPixels().filter(([x, y]) => near(y * mask.width + x));
+    const region = floodRegion(seeds, near);
+    if (!region) return null; // 範囲が狭すぎて一致する色がない
+    const { hit, box } = region;
     const ctx = mask.getContext('2d');
     const img = ctx.getImageData(box.x, box.y, box.w, box.h);
     for (let y = 0; y < box.h; y++) {
@@ -526,9 +588,119 @@ self.onmessage = (e) => handle(e.data);`;
       }
     }
     ctx.putImageData(img, box.x, box.y);
-    commitAction(box);
+    return box;
+  }
+
+  // 直前の操作がこのセッションの消し方なら続きとして扱う（元に戻す・AI などをしたら別のセッション）
+  const sessionActive = () => !!session && undoStack[undoStack.length - 1] === session.lastEntry;
+
+  function startPick(pick) {
+    if (!sessionActive()) {
+      const base = makeCanvas(mask.width, mask.height);
+      base.getContext('2d').drawImage(mask, 0, 0);
+      session = { base, count: 0, picks: [], lastEntry: null, collapsed: false };
+    }
+    beginAction();
+    const box = applyPick(pick);
+    session.picks.push(pick);
+    if (box) {
+      commitAction(box);
+      session.count++;
+      session.lastEntry = undoStack[undoStack.length - 1];
+      session.collapsed = false;
+    } else {
+      action = null;
+    }
     redraw();
+    renderSwatches(pick.ref.slice(0, 3), pick.kind === 'edges' ? 'ふちの色' : 'クリックした色');
+    showGuide('adjust');
+  }
+
+  stage.addEventListener('click', (e) => {
+    if (!src || showOriginal || aiRunning || getMethod() !== 'color') return;
+    const p = pointerToMask(e);
+    startPick({ kind: 'point', p, ref: colorAt(p.x, p.y) });
   });
+
+  $('btn-edges').addEventListener('click', () => {
+    if (!src || aiRunning) return;
+    if (showOriginal) setView('edit');
+    startPick({ kind: 'edges', ref: dominantBorderColor() });
+  });
+
+  let retryFrame = 0;
+  toleranceInput.addEventListener('input', () => {
+    renderSwatches();
+    if (!sessionActive()) return;
+    cancelAnimationFrame(retryFrame);
+    retryFrame = requestAnimationFrame(() => {
+      if (!sessionActive()) return;
+      // つまみで調整したら、セッションの履歴を「セッション開始前に戻す」1項目にまとめる
+      if (!session.collapsed) {
+        undoStack.splice(Math.max(0, undoStack.length - session.count));
+        session.count = 1;
+        const entry = { region: { x: 0, y: 0, w: mask.width, h: mask.height }, image: session.base };
+        undoStack.push(entry);
+        redoStack = [];
+        session.lastEntry = entry;
+        session.collapsed = true;
+        updateUI();
+      }
+      const ctx = mask.getContext('2d');
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.clearRect(0, 0, mask.width, mask.height);
+      ctx.drawImage(session.base, 0, 0);
+      session.picks.forEach(applyPick);
+      redraw();
+    });
+  });
+
+  // ---- 画像の上の手順案内 ----
+  // 「AI未使用」で、まだ何も消していなければ ①、消したあとは ② を少しのあいだ出す
+  function showGuide(step) {
+    if (step) guideStep = step;
+    clearTimeout(guideTimer);
+    const guide = $('guide');
+    const visible = !!src && getMethod() === 'color' && !showOriginal && guideStep !== 'done';
+    guide.classList.toggle('hidden', !visible);
+    if (!visible) return;
+    // 画面が狭いと設定は画像の下に並ぶ
+    const where = getComputedStyle($('side')).position === 'fixed' ? '右' : '下';
+    guide.querySelector('span').textContent = guideStep === 'start'
+      ? `① ${where}の「ふちの色で背景を消す」を押すか、消したい背景をクリック`
+      : `② ${where}の帯のつまみで、消える範囲を調整できます`;
+    if (guideStep === 'adjust') guideTimer = setTimeout(() => showGuide('done'), 5000);
+  }
+
+  // ---- 色の帯のスライダー ----
+  // 左端がクリックした色、右へ行くほど違う色。明るい色は暗い方へ、暗い色は明るい方へずらして並べる。
+  // つまみより左（＝消える範囲）は色のまま、右（＝残る範囲）は薄く覆う
+  let pickedColor = null;
+  let pickedLabel = '';
+  function renderSwatches(rgb, label) {
+    if (rgb) pickedColor = rgb;
+    if (label) pickedLabel = label;
+    const seed = pickedColor || [255, 255, 255];
+    const bright = (seed[0] * 299 + seed[1] * 587 + seed[2] * 114) / 1000 > 128;
+    const sign = bright ? -1 : 1;
+    const min = Number(toleranceInput.min);
+    const max = Number(toleranceInput.max);
+    const stops = [];
+    for (let k = 0; k <= 10; k++) {
+      const t = k / 10;
+      const shift = sign * (min + (max - min) * t) * 2.55;
+      const c = seed.map((v) => clamp(Math.round(v + shift), 0, 255));
+      stops.push(`rgb(${c.join(',')}) ${t * 100}%`);
+    }
+    $('tol-strip').style.background = `linear-gradient(to right, ${stops.join(', ')})`;
+    const p = (Number(toleranceInput.value) - min) / (max - min);
+    $('tol-keep').style.setProperty('--p', p);
+    $('tol-erase').style.setProperty('--p', p);
+    // 「消える」の文字が収まらないほど狭いときは出さない
+    $('tol-erase').firstElementChild.style.visibility = p < 0.22 ? 'hidden' : '';
+    $('tol-seed-label').textContent = pickedColor ? pickedLabel : '例：白をクリックした場合';
+  }
+  renderSwatches();
 
   // ================= 履歴 =================
   // マスクは変更された範囲だけを保存してメモリを抑える

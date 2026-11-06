@@ -660,8 +660,11 @@ body.has-side .page-head { display: none; }
 canvas.checker {
   background: repeating-conic-gradient(#d4d7dc 0% 25%, #fff 0% 50%) 50% / 16px 16px;
 }
-.btn.secondary.ai-btn { justify-content: center; font-weight: bold; color: var(--accent); border-color: var(--accent); }
-.btn.secondary.ai-btn:hover:not(:disabled) { background: #eff6ff; }
+.btn.secondary.ai-btn,
+.btn.secondary.action-btn { justify-content: center; font-weight: bold; color: var(--accent); border-color: var(--accent); }
+.btn.secondary.ai-btn:hover:not(:disabled),
+.btn.secondary.action-btn:hover:not(:disabled) { background: #eff6ff; }
+#color-fields .action-btn + .opt-note { margin: 8px 0 16px; }
 /* AI ボタン自体を進捗バーにする */
 .btn.secondary.ai-btn { position: relative; overflow: hidden; }
 .ai-btn > svg, .ai-btn > .ai-label { position: relative; }
@@ -676,10 +679,101 @@ canvas.checker {
 .ai-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #ai-status { margin: 8px 0 0; }
 .error-text { color: var(--error) !important; }
-.opt.divided { padding-top: 16px; border-top: 1px dashed var(--border); }
 .opt-note { margin: 0 0 12px; }
 /* 背景削除：クリックで色の範囲を消す */
-#view.checker { cursor: crosshair; }
+.pick-color #view.checker { cursor: crosshair; }
+/* 画像の上の手順案内（画像のまわりの暗い枠を基準に置く） */
+.crop-area { position: relative; }
+.canvas-guide {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - 24px);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(31, 35, 40, .88);
+  color: #fff;
+  font-size: .85rem;
+  line-height: 1.4;
+  box-shadow: 0 4px 12px rgba(0,0,0,.25);
+  pointer-events: none;
+  animation: guide-in .3s ease-out;
+}
+.canvas-guide svg { flex: none; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+@keyframes guide-in { from { opacity: 0; transform: translate(-50%, -6px); } to { opacity: 1; transform: translateX(-50%); } }
+/* 色の帯のスライダー（つまみより左の色が消え、右は残る） */
+.tol-slider { --thumb: 16px; position: relative; height: 36px; margin: 4px 0 6px; }
+.tol-strip { position: absolute; inset: 6px 0; border-radius: 6px; border: 1px solid var(--border); }
+.tol-keep {
+  --p: 0;
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  right: 0;
+  /* つまみの中心から右端まで */
+  left: calc(var(--p) * (100% - var(--thumb)) + var(--thumb) / 2);
+  border-radius: 0 6px 6px 0;
+  background: repeating-linear-gradient(45deg, rgba(255,255,255,.85) 0 6px, rgba(255,255,255,.6) 6px 12px);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  pointer-events: none;
+}
+.tol-erase {
+  --p: 0;
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 0;
+  width: calc(var(--p) * (100% - var(--thumb)) + var(--thumb) / 2);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  pointer-events: none;
+}
+.tol-keep span,
+.tol-erase span { font-size: .75rem; font-weight: bold; color: var(--muted); white-space: nowrap; }
+.tol-erase span { padding: 0 10px; background: rgba(255,255,255,.75); border-radius: 4px; }
+
+.tol-slider input[type="range"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+.tol-slider input[type="range"]::-webkit-slider-runnable-track { background: transparent; height: 100%; }
+.tol-slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: var(--thumb);
+  height: 36px;
+  border-radius: 5px;
+  background: #fff;
+  border: 2px solid var(--accent);
+  box-shadow: 0 1px 4px rgba(0,0,0,.3);
+}
+.tol-slider input[type="range"]::-moz-range-track { background: transparent; height: 100%; }
+.tol-slider input[type="range"]::-moz-range-thumb {
+  width: var(--thumb);
+  height: 32px;
+  border-radius: 5px;
+  background: #fff;
+  border: 2px solid var(--accent);
+  box-shadow: 0 1px 4px rgba(0,0,0,.3);
+}
+.tol-slider input[type="range"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.range-ends { display: flex; justify-content: space-between; margin-top: -2px; font-size: .75rem; color: var(--muted); }
+#color-fields .opt-note:last-child { margin: 10px 0 0; }
 .readonly #view.checker { cursor: default; }
 .opt input[type="range"] { width: 100%; }
 .color-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: .9rem; }
