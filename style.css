@@ -1348,3 +1348,26 @@ canvas.checker {
 .pos-cell:hover { background: #f3f4f6; }
 .pos-cell.active { border-color: var(--accent); background: #eff6ff; }
 .pos-cell.active::after { background: var(--accent); }
+
+/* ================= 画像の結合 ================= */
+.cb-strip .wm-thumb { cursor: grab; }
+.cb-strip .wm-thumb.dragging { opacity: .4; }
+.cb-strip .wm-thumb.drop-before { box-shadow: -4px 0 0 var(--accent); }
+.cb-strip .wm-thumb.drop-after { box-shadow: 4px 0 0 var(--accent); }
+/* 並ぶ順番の番号 */
+.cb-order {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font-size: .7rem;
+  line-height: 20px;
+  text-align: center;
+}
+.cb-sliders input[type="range"] { width: 100%; height: 26px; margin-bottom: 8px; }
+#grid-fields input[type="range"] { width: 100%; height: 26px; }

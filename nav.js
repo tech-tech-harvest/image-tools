@@ -7,6 +7,7 @@
     ['index.html', '形式変換'],
     ['edit/index.html', '画像編集'],
     ['resize/index.html', 'トリミング＆リサイズ'],
+    ['combine/index.html', '画像の結合'],
     ['mosaic/index.html', 'モザイク'],
     ['bg-remove/index.html', '背景削除'],
     ['watermark/index.html', '透かし'],

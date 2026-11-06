@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>画像の結合</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-inner">
+      <a class="brand" href="../index.html">ファイル変換ツール</a>
+      <nav class="site-nav"></nav>
+    </div>
+  </header>
+  <script src="../nav.js"></script>
+
+  <div class="page-head">
+    <h1>画像の結合</h1>
+    <p class="sub">複数の画像を、横・縦・グリッドに並べて1枚の画像にします。ファイルは外部に送信されません</p>
+  </div>
+
+  <div class="layout" id="layout">
+    <main class="main-col">
+      <!-- 最初の画面：ドロップのみ -->
+      <section class="card drop-card" id="drop-card">
+        <label id="drop" class="drop-zone" for="file-input">
+          <input type="file" id="file-input" accept="image/*" multiple hidden>
+          <div class="drop-inner">
+            <div class="drop-icon">⬆</div>
+            <p><strong>ここに画像をドラッグ＆ドロップ</strong></p>
+            <p class="muted">または クリックしてファイルを選択（複数可）</p>
+          </div>
+        </label>
+      </section>
+
+      <!-- 読み込み後：左にプレビューと画像の一覧 -->
+      <section class="card hidden" id="workspace">
+        <div class="pane-head">
+          <h2 id="file-info">結合後のプレビュー</h2>
+          <div class="info-wrap">
+            <button type="button" class="info-btn" aria-label="操作のヒント" aria-expanded="false">i</button>
+            <p class="info-pop" role="tooltip">下の一覧の順番で並びます。ドラッグで並べ替え、× で外せます。右の設定を変えるとプレビューにすぐ反映されます。</p>
+          </div>
+        </div>
+        <div class="edit-bar">
+          <button type="button" id="add-files" class="btn secondary with-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>画像を追加
+          </button>
+          <button type="button" id="clear" class="btn secondary with-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>すべて削除
+          </button>
+          <span id="count" class="muted small"></span>
+        </div>
+        <div class="crop-area wm-area">
+          <canvas id="view" class="wm-view checker"></canvas>
+        </div>
+        <div id="strip" class="wm-strip cb-strip" aria-label="結合する画像（この順番で並びます）"></div>
+      </section>
+    </main>
+
+    <!-- 結合の設定（サイドバー） -->
+    <aside class="side card hidden" id="side">
+      <div class="side-head">
+        <h2>結合の設定</h2>
+      </div>
+
+      <div class="file-tabs" role="radiogroup" aria-label="並べ方">
+        <label><input type="radio" name="layout" value="row" checked>横に並べる</label>
+        <label><input type="radio" name="layout" value="column">縦に並べる</label>
+        <label><input type="radio" name="layout" value="grid">グリッド</label>
+      </div>
+
+      <div class="side-body file-panel">
+        <div class="tab-content">
+          <!-- 横・縦 -->
+          <div id="line-fields">
+            <div class="opt">
+              <div class="opt-title" id="fit-title">高さのそろえ方</div>
+              <select id="fit" class="seg">
+                <option value="min" data-short="小さい画像に">小さい画像に合わせる</option>
+                <option value="max" data-short="大きい画像に">大きい画像に合わせる</option>
+                <option value="none">そろえない</option>
+              </select>
+            </div>
+            <div class="opt hidden" id="align-row">
+              <div class="opt-title">そろえる位置</div>
+              <select id="align" class="seg">
+                <option value="start" data-short="上">上（左）</option>
+                <option value="center" selected>中央</option>
+                <option value="end" data-short="下">下（右）</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- グリッド -->
+          <div id="grid-fields" class="hidden">
+            <div class="opt">
+              <div class="opt-title">列の数 <span class="opt-value"><span id="v-cols">2</span> 列</span></div>
+              <input type="range" id="cols" min="1" max="8" step="1" value="2">
+            </div>
+            <div class="opt">
+              <div class="opt-title">1マスの縦横比</div>
+              <div class="grid2">
+                <select id="cell-ratio" class="dd">
+                  <option value="first">最初の画像に合わせる</option>
+                  <option value="1">1:1 正方形</option>
+                  <option value="1.3333">4:3 横長</option>
+                  <option value="0.75">3:4 縦長</option>
+                  <option value="1.7778">16:9 ワイド</option>
+                </select>
+              </div>
+            </div>
+            <div class="opt">
+              <div class="opt-title">画像の入れ方</div>
+              <select id="cell-fit" class="seg">
+                <option value="contain" data-short="全体を収める">全体を収める（余白が出る）</option>
+                <option value="cover" data-short="切り抜いて埋める">切り抜いてマスを埋める</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="opt cb-sliders">
+          <div class="opt-title">間隔 <span class="opt-value"><span id="v-gap">2</span>%（<span id="v-gap-px">0</span> px）</span></div>
+          <input type="range" id="gap" min="0" max="20" step="0.5" value="2">
+          <div class="toggle-row">
+            <label class="toggle-chip"><input type="checkbox" id="outer">外側にも余白</label>
+          </div>
+        </div>
+
+        <div class="opt">
+          <div class="opt-title">背景の色 <span class="muted small">（間隔・余白の部分）</span></div>
+          <select id="bg" class="seg">
+            <option value="#ffffff">白</option>
+            <option value="#111111">黒</option>
+            <option value="transparent">透明</option>
+            <option value="custom" data-short="色を選ぶ">色を選ぶ</option>
+          </select>
+          <label id="bg-color-row" class="color-row hidden">色 <input type="color" id="bg-color" value="#2563eb"></label>
+        </div>
+      </div>
+
+      <div class="side-actions">
+        <div class="out-summary" aria-live="polite">
+          <div><span>大きさ</span><strong id="sum-dim">—</strong></div>
+          <div><span>縦横比</span><strong id="sum-ratio">—</strong></div>
+          <div><span id="sum-format">ファイル</span><strong id="sum-size">—</strong></div>
+        </div>
+        <p id="status" class="muted small center"></p>
+        <button type="button" id="download" class="btn primary block">ダウンロード</button>
+      </div>
+    </aside>
+  </div>
+
+  <script src="../segmented.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
