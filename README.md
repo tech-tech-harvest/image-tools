@@ -57,4 +57,6 @@ vendor/              同梱しているライブラリ
 
 ## ライセンス
 
+このプロジェクトのコードは [MIT License](LICENSE) で公開しています（Copyright (c) 2026 tech-harvest）。
+
 同梱しているライブラリ（JSZip、PDF.js、pdf-lib など）のライセンスは [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) を参照してください。
