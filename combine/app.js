@@ -26,10 +26,114 @@
     return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2;
   };
 
+  // ================= グリッドのパターン =================
+  // cols：列の数の設定を使うパターン
+  const PATTERNS = [
+    { id: 'z', label: '横に順番に並べる', cols: true },
+    { id: 'n', label: '縦に順番に並べる', cols: true },
+    { id: 'snake', label: '行ごとに折り返して並べる', cols: true },
+    { id: 'big-corner', label: '1枚目を左上に大きく、残りを横に順番に', cols: true },
+    { id: 'big-left', label: '1枚目を左に大きく、残りを右に縦に並べる' },
+    { id: 'big-right', label: '1枚目を右に大きく、残りを左に縦に並べる' },
+    { id: 'big-top', label: '1枚目を上に大きく、残りを下に横に並べる' },
+    { id: 'big-bottom', label: '1枚目を下に大きく、残りを上に横に並べる' },
+  ];
+  let gridPattern = 'z';
+
+  // n 枚をマス目のどこに置くか。c, r：左上のマス、cs, rs：何マス分使うか。C, R：全体のマスの数
+  function gridSlots(pattern, n, colsOpt) {
+    const one = (c, r, s = 1) => ({ c, r, cs: s, rs: s });
+    const rest = (f) => Array.from({ length: n - 1 }, (_, k) => f(k));
+    const m = n - 1;
+    let slots;
+    if (n === 1) slots = [one(0, 0)];
+    else if (pattern === 'big-left') slots = [one(0, 0, m), ...rest((k) => one(m, k))];
+    else if (pattern === 'big-right') slots = [one(1, 0, m), ...rest((k) => one(0, k))];
+    else if (pattern === 'big-top') slots = [one(0, 0, m), ...rest((k) => one(k, m))];
+    else if (pattern === 'big-bottom') slots = [one(0, 1, m), ...rest((k) => one(k, 0))];
+    else if (pattern === 'big-corner') {
+      // 1枚目が 2×2 マスを使い、残りは空いているマスに左上から順に入る
+      const C = Math.max(2, colsOpt);
+      const taken = new Set(['0,0', '1,0', '0,1', '1,1']);
+      slots = [one(0, 0, 2)];
+      let pos = 0;
+      for (let k = 1; k < n; k++) {
+        while (taken.has(`${pos % C},${Math.floor(pos / C)}`)) pos++;
+        slots.push(one(pos % C, Math.floor(pos / C)));
+        pos++;
+      }
+    } else if (pattern === 'n') {
+      const R = Math.ceil(n / Math.min(colsOpt, n));
+      slots = Array.from({ length: n }, (_, i) => one(Math.floor(i / R), i % R));
+    } else {
+      const C = Math.min(colsOpt, n);
+      slots = Array.from({ length: n }, (_, i) => {
+        const r = Math.floor(i / C);
+        const k = i % C;
+        return one(pattern === 'snake' && r % 2 ? C - 1 - k : k, r);
+      });
+    }
+    return {
+      C: Math.max(...slots.map((s) => s.c + s.cs)),
+      R: Math.max(...slots.map((s) => s.r + s.rs)),
+      slots,
+    };
+  }
+
+  // パターンの図：マス目と、並ぶ順番を表す矢印
+  const BOX = 56;
+  function patternIcon(pattern, n, cols) {
+    const G = gridSlots(pattern, n, cols);
+    const g = 2;
+    const u = Math.min((BOX - (G.C - 1) * g) / G.C, (BOX - (G.R - 1) * g) / G.R);
+    const ox = (BOX - (G.C * u + (G.C - 1) * g)) / 2;
+    const oy = (BOX - (G.R * u + (G.R - 1) * g)) / 2;
+    const f = (v) => +v.toFixed(1);
+    const pts = [];
+    const rects = G.slots.map((s) => {
+      const x = ox + s.c * (u + g);
+      const y = oy + s.r * (u + g);
+      const w = s.cs * u + (s.cs - 1) * g;
+      const h = s.rs * u + (s.rs - 1) * g;
+      pts.push([x + w / 2, y + h / 2]);
+      return `<rect class="cb-cell" x="${f(x)}" y="${f(y)}" width="${f(w)}" height="${f(h)}" rx="1.5"/>`;
+    }).join('');
+    let arrow = '';
+    if (pts.length > 1) {
+      // 矢印の先が最後のマスの中心に来るように、線は少し手前で止める
+      const [ax, ay] = pts[pts.length - 2];
+      const [bx, by] = pts[pts.length - 1];
+      const len = Math.hypot(bx - ax, by - ay) || 1;
+      const dx = (bx - ax) / len;
+      const dy = (by - ay) / len;
+      const hl = Math.min(7, len * 0.6);
+      const end = [bx - dx * hl, by - dy * hl];
+      const line = [...pts.slice(0, -1), end].map(([x, y]) => `${f(x)},${f(y)}`).join(' ');
+      const head = [[bx, by], [end[0] - dy * 4, end[1] + dx * 4], [end[0] + dy * 4, end[1] - dx * 4]]
+        .map(([x, y]) => `${f(x)},${f(y)}`).join(' ');
+      arrow = `<polyline class="cb-arrow" points="${line}"/><polygon class="cb-head" points="${head}"/>`;
+    }
+    const [sx, sy] = pts[0];
+    return `<svg viewBox="0 0 ${BOX} ${BOX}" aria-hidden="true">${rects}${arrow}<circle class="cb-head" cx="${f(sx)}" cy="${f(sy)}" r="2.5"/></svg>`;
+  }
+
+  function renderPatterns() {
+    const n = Math.max(2, items.length);
+    const cols = Number($('cols').value);
+    $('patterns').innerHTML = PATTERNS.map((p) => `<button type="button" class="cb-pat${p.id === gridPattern ? ' active' : ''}" role="radio" aria-checked="${p.id === gridPattern}" data-id="${p.id}" title="${p.label}" aria-label="${p.label}">${patternIcon(p.id, n, cols)}</button>`).join('');
+  }
+  $('patterns').addEventListener('click', (e) => {
+    const b = e.target.closest('.cb-pat');
+    if (!b) return;
+    gridPattern = b.dataset.id;
+    refresh();
+  });
+
   // ================= 設定 =================
   const getLayout = () => document.querySelector('input[name="layout"]:checked').value;
   const settings = () => ({
     layout: getLayout(),
+    pattern: gridPattern,
     fit: $('fit').value,
     align: $('align').value,
     cols: Number($('cols').value),
@@ -71,31 +175,34 @@
       return { W: row ? main : crossMax + m * 2, H: row ? crossMax + m * 2 : main, place, gap };
     }
 
-    // グリッド：1マスの大きさは、各画像が入る大きさの中央値（極端に小さい画像に全体が引きずられないように）
-    const cols = Math.min(o.cols, n);
-    const rows = Math.ceil(n / cols);
+    // グリッド：1マスの大きさは、各画像が入る大きさの中央値（極端に小さい画像に全体が引きずられないように）。
+    // 何マス分も使う画像は、1マスあたりの大きさで数える
+    const G = gridSlots(o.pattern, n, o.cols);
     const ratio = o.cellRatio === 'first' ? sizes[0].w / sizes[0].h : Number(o.cellRatio);
-    const cw = median(sizes.map((s) => Math.min(s.w, s.h * ratio)));
+    const cw = median(sizes.map((s, i) => Math.min(s.w, s.h * ratio) / G.slots[i].cs));
     const ch = cw / ratio;
     const gap = Math.round((Math.min(cw, ch) * o.gapPct) / 100);
     const m = o.outer ? gap : 0;
     sizes.forEach((s, i) => {
-      const cx = m + (i % cols) * (cw + gap);
-      const cy = m + Math.floor(i / cols) * (ch + gap);
+      const t = G.slots[i];
+      const cx = m + t.c * (cw + gap);
+      const cy = m + t.r * (ch + gap);
+      const sw0 = t.cs * cw + (t.cs - 1) * gap;
+      const sh0 = t.rs * ch + (t.rs - 1) * gap;
       if (o.cellFit === 'cover') {
         // マスを埋めるように拡大し、はみ出す部分（画像の中央以外）を切り抜く
-        const k = Math.max(cw / s.w, ch / s.h);
-        const sw = cw / k;
-        const sh = ch / k;
-        place.push({ i, x: cx, y: cy, w: cw, h: ch, src: { x: (s.w - sw) / 2, y: (s.h - sh) / 2, w: sw, h: sh } });
+        const k = Math.max(sw0 / s.w, sh0 / s.h);
+        const sw = sw0 / k;
+        const sh = sh0 / k;
+        place.push({ i, x: cx, y: cy, w: sw0, h: sh0, src: { x: (s.w - sw) / 2, y: (s.h - sh) / 2, w: sw, h: sh } });
       } else {
-        const k = Math.min(cw / s.w, ch / s.h);
+        const k = Math.min(sw0 / s.w, sh0 / s.h);
         const w = s.w * k;
         const h = s.h * k;
-        place.push({ i, x: cx + (cw - w) / 2, y: cy + (ch - h) / 2, w, h });
+        place.push({ i, x: cx + (sw0 - w) / 2, y: cy + (sh0 - h) / 2, w, h });
       }
     });
-    return { W: cols * cw + (cols - 1) * gap + m * 2, H: rows * ch + (rows - 1) * gap + m * 2, place, gap };
+    return { W: G.C * cw + (G.C - 1) * gap + m * 2, H: G.R * ch + (G.R - 1) * gap + m * 2, place, gap };
   }
 
   // 結合した画像を描く。scale：元の解像度に対する倍率
@@ -270,6 +377,8 @@
     $('fit-title').textContent = o.layout === 'row' ? '高さのそろえ方' : '幅のそろえ方';
     $('align-row').classList.toggle('hidden', !line || o.fit !== 'none');
     $('v-cols').textContent = o.cols;
+    $('cols-row').classList.toggle('hidden', !PATTERNS.find((p) => p.id === o.pattern).cols);
+    if (!line) renderPatterns();
     $('v-gap').textContent = o.gapPct;
     $('bg-color-row').classList.toggle('hidden', $('bg').value !== 'custom');
     if (!has) return;

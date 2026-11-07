@@ -96,20 +96,22 @@
           <!-- グリッド -->
           <div id="grid-fields" class="hidden">
             <div class="opt">
+              <div class="opt-title">パターン <span class="muted small">（矢印は並ぶ順番）</span></div>
+              <div id="patterns" class="cb-patterns" role="radiogroup" aria-label="グリッドのパターン"></div>
+            </div>
+            <div class="opt" id="cols-row">
               <div class="opt-title">列の数 <span class="opt-value"><span id="v-cols">2</span> 列</span></div>
               <input type="range" id="cols" min="1" max="8" step="1" value="2">
             </div>
             <div class="opt">
               <div class="opt-title">1マスの縦横比</div>
-              <div class="grid2">
-                <select id="cell-ratio" class="dd">
-                  <option value="first">最初の画像に合わせる</option>
-                  <option value="1">1:1 正方形</option>
-                  <option value="1.3333">4:3 横長</option>
-                  <option value="0.75">3:4 縦長</option>
-                  <option value="1.7778">16:9 ワイド</option>
-                </select>
-              </div>
+              <select id="cell-ratio" class="dd">
+                <option value="first">最初の画像に合わせる</option>
+                <option value="1">1:1 正方形</option>
+                <option value="1.3333">4:3 横長</option>
+                <option value="0.75">3:4 縦長</option>
+                <option value="1.7778">16:9 ワイド</option>
+              </select>
             </div>
             <div class="opt">
               <div class="opt-title">画像の入れ方</div>
