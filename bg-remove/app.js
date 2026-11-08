@@ -125,7 +125,7 @@
     redoStack = [];
     fileInfo.textContent = `${file.name}（${iw} × ${ih} px）`;
     if (aiBlocked) setAiStatus(SAFARI_MESSAGE, true);
-    else setAiStatus('初回のみAIモデル（約44〜88MB）をダウンロードします。画像は外部に送信されません。');
+    else setAiStatus('初回のみAIモデル（約44〜88MB）をダウンロードします。');
 
     // ドロップ画面から、左に画像・右に設定の編集画面へ
     $('step-input').classList.add('hidden');
@@ -396,7 +396,7 @@ self.onmessage = (e) => handle(e.data);`;
     aiRunning = true;
     aiBtn.disabled = true;
     startProgress();
-    setAiStatus('初回のみAIモデルをダウンロードします。画像は外部に送信されません。');
+    setAiStatus('初回のみAIモデルをダウンロードします。');
 
     // マスクと同じ大きさの画像を渡す（大きな写真でもメモリを使いすぎない）
     const input = makeCanvas(mask.width, mask.height);
