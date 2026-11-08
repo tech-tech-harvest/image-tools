@@ -56,14 +56,15 @@ body {
   text-decoration: none;
   white-space: nowrap;
 }
-/* ロゴ代わりの小さな印。単機能ページではなく「ツール集」の見た目にする */
+/* ロゴ代わりの小さな印（色の地に、白い写真の絵）。単機能ページではなく「ツール集」の見た目にする */
 .brand::before {
   content: "";
-  width: 22px;
-  height: 22px;
-  border-radius: 7px;
-  background: linear-gradient(135deg, var(--accent), #38bdf8);
-  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .22);
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='5' y='7' width='22' height='18' rx='3' fill='none' stroke='%23fff' stroke-width='2'/%3E%3Ccircle cx='12' cy='13' r='2.2' fill='%23fff'/%3E%3Cpath d='M7 23l6.5-6.5 4 4 3-3L25 22v1H7z' fill='%23fff'/%3E%3C/svg%3E") center / 20px 20px no-repeat, linear-gradient(145deg, #38bdf8, #2563eb);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .25), inset 0 0 0 1px rgba(255, 255, 255, .18);
 }
 .site-nav {
   display: flex;
