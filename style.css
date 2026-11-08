@@ -12,6 +12,10 @@
   --panel: #f5f8ff;
   --header-h: 57px;
   --side-w: 360px;
+  /* ヘッダ（ツール集だとひと目で分かるように、本文とは別の濃い色の帯にする） */
+  --brand-bar: #16233a;
+  --brand-bar-2: #223f63;
+  --on-brand: #e8eef6;
 }
 
 body {
@@ -27,8 +31,9 @@ body {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: var(--card);
-  border-bottom: 1px solid var(--border);
+  background: linear-gradient(90deg, var(--brand-bar), var(--brand-bar-2));
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .18);
 }
 .site-inner {
   max-width: 1400px;
@@ -42,11 +47,23 @@ body {
 }
 .brand {
   justify-self: start; /* 押せる範囲を文字の幅だけにする（列いっぱいに広がらないように） */
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
   font-weight: bold;
   font-size: 1.05rem;
-  color: var(--text);
+  color: #fff;
   text-decoration: none;
   white-space: nowrap;
+}
+/* ロゴ代わりの小さな印。単機能ページではなく「ツール集」の見た目にする */
+.brand::before {
+  content: "";
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: linear-gradient(135deg, var(--accent), #38bdf8);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .22);
 }
 .site-nav {
   display: flex;
@@ -57,12 +74,12 @@ body {
 .site-nav a {
   padding: 6px 14px;
   border-radius: 8px;
-  color: var(--muted);
+  color: rgba(232, 238, 246, .72);
   text-decoration: none;
   font-size: .95rem;
 }
-.site-nav a:hover { background: #f3f4f6; color: var(--text); }
-.site-nav a.active { background: #eff6ff; color: var(--accent); font-weight: bold; }
+.site-nav a:hover { background: rgba(255, 255, 255, .1); color: #fff; }
+.site-nav a.active { background: rgba(255, 255, 255, .15); color: #fff; font-weight: bold; }
 
 /* ハンバーガーメニュー：ナビが1行に収まらないときに nav.js が .compact を付ける */
 .nav-toggle {
@@ -71,9 +88,9 @@ body {
   width: 40px; /* ヘッダの高さ（--header-h）を変えない大きさ */
   height: 40px;
   padding: 0;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255, 255, 255, .25);
   border-radius: 10px;
-  background: #fff;
+  background: rgba(255, 255, 255, .06);
   cursor: pointer;
   place-content: center;
   gap: 5px;
@@ -83,10 +100,10 @@ body {
   width: 20px;
   height: 2px;
   border-radius: 1px;
-  background: var(--text);
+  background: #fff;
   transition: transform .2s, opacity .2s;
 }
-.nav-toggle:hover { background: #f3f4f6; }
+.nav-toggle:hover { background: rgba(255, 255, 255, .14); }
 .nav-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* 開いている間は × にする */
 .site-header.open .nav-toggle span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
@@ -107,9 +124,9 @@ body {
   flex-direction: column;
   gap: 2px;
   padding: 8px 16px 12px;
-  background: var(--card);
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, .08);
+  background: var(--brand-bar);
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, .25);
 }
 .site-header.compact.open .site-nav { display: flex; }
 .site-header.compact .site-nav a { padding: 12px 14px; font-size: 1rem; }
