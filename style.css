@@ -82,6 +82,9 @@ body {
 .site-nav a:hover { background: rgba(255, 255, 255, .1); color: #fff; }
 .site-nav a.active { background: rgba(255, 255, 255, .15); color: #fff; font-weight: bold; }
 
+/* スマホで、ヘッダーのボタンやナビを続けて押しても、ダブルタップで画面が拡大されないようにする（2 本指での拡大はできる） */
+.site-header, .site-header * { touch-action: manipulation; }
+
 /* ハンバーガーメニュー：ナビが1行に収まらないときに nav.js が .compact を付ける */
 .nav-toggle {
   display: none;
